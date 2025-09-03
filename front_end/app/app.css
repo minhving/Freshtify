@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "Jost", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --color-primary: #162229;
+  --color-background: #ecf1f5;
+  --color-text: #ecf1f5;
+  --color-secondary: #ecf1f5;
+  --color-brand: #3b82f6;
+  --color-featureCard: #4e5d6d;
+}
+
+body {
+  @apply bg-[var(--color-background)] text-[var(--color-text)] font-sans;
+}
+
+/* Custom dashed border with larger dashes */
+[style*="--dash-size"] {
+  background-image:
+    linear-gradient(
+      to right,
+      var(--color-secondary) var(--dash-size, 8px),
+      transparent var(--dash-size, 8px)
+    ),
+    linear-gradient(
+      to bottom,
+      var(--color-secondary) var(--dash-size, 8px),
+      transparent var(--dash-size, 8px)
+    ),
+    linear-gradient(
+      to left,
+      var(--color-secondary) var(--dash-size, 8px),
+      transparent var(--dash-size, 8px)
+    ),
+    linear-gradient(
+      to top,
+      var(--color-secondary) var(--dash-size, 8px),
+      transparent var(--dash-size, 8px)
+    );
+  background-size:
+    calc(100% - var(--gap-size, 4px)) 2px,
+    2px calc(100% - var(--gap-size, 4px)),
+    calc(100% - var(--gap-size, 4px)) 2px,
+    2px calc(100% - var(--gap-size, 4px));
+  background-position:
+    top center,
+    center right,
+    bottom center,
+    center left;
+  background-repeat: repeat-x, repeat-y, repeat-x, repeat-y;
+  border: none;
+}
