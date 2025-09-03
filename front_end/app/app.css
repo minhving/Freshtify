@@ -10,6 +10,14 @@
   --color-secondary: #ecf1f5;
   --color-brand: #3b82f6;
   --color-featureCard: #4e5d6d;
+  --color-lowStock-bg: #FEF2F2;
+  --color-lowStock-text: #EF4444;
+  --color-mediumStock-bg: #FEFCE8;
+  --color-mediumStock-text: #CA8A04;
+  --color-highStock-bg: #F0FDF4;
+  --color-highStock-text: #16A34A;
+  --color-accent: #8979FF;
+
 }
 
 body {
