@@ -44,6 +44,7 @@ export default function Upload() {
     if (files.length > 0) {
       console.log("Uploading files:", files);
       // Add upload logic here
+
       navigate("/dashboard");
     }
   };
