@@ -1,4 +1,70 @@
-import React from "react";
+import { TrendingUp } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  Cell,
+  CartesianAxis,
+  Line,
+  LineChart,
+} from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import type { ChartConfig } from "../components/ui/chart";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "../components/ui/chart";
+const BarDescription = "A bar chart";
+const LineDescription = "A line chart";
+
+const LineChartData = [
+  { time: "T1", Banana: 85, Broccoli: 50, Avocado: 90, Onion: 100, Tomato: 65 },
+  {
+    time: "T2",
+    Banana: 70,
+    Broccoli: 60,
+    Avocado: null,
+    Onion: 95,
+    Tomato: 80,
+  },
+  { time: "T3", Banana: 90, Broccoli: 55, Avocado: 88, Onion: 100, Tomato: 75 },
+  { time: "T4", Banana: 80, Broccoli: 48, Avocado: 92, Onion: 97, Tomato: 85 },
+];
+// Dynamically get the keys for the series (excluding 'time')
+const seriesKeys = Object.keys(LineChartData[0]).filter((k) => k !== "time");
+// Get the latest snapshot (last entry in the array)
+const { time, ...latestSnapShot } = LineChartData[LineChartData.length - 1];
+
+const BarChartData = seriesKeys.map((key) => ({
+  name: key,
+  stock: latestSnapShot[key as keyof typeof latestSnapShot],
+}));
+console.log("BarChartData:", BarChartData);
+
+const chartConfig = {
+  stock: {
+    label: "Stock Level",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
+
+const chartcolors = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+];
 
 function Dashboard() {
   return (
@@ -33,18 +99,83 @@ function Dashboard() {
         <h1 className="text-xl font-bold">Product Overview</h1>
         {/* Chart Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-secondary rounded-2xl h-96 mt-5">
-            {/* Placeholder for Chart */}
-            <p className="text-primary text-center pt-40">
-              [Chart Placeholder]
-            </p>
-          </div>
-          <div className="bg-secondary rounded-2xl h-96 mt-5">
-            {/* Placeholder for Chart */}
-            <p className="text-primary text-center pt-40">
-              [Chart Placeholder]
-            </p>
-          </div>
+          {/* Bar Chart for latest record */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Bar Chart of Latest TimeStamp</CardTitle>
+              <CardDescription>{BarDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <BarChart accessibilityLayer data={BarChartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    // tickFormatter={(value) => value.slice(0, 3)}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Bar dataKey="stock" radius={8}>
+                    {BarChartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={chartcolors[index % chartcolors.length]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Line Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Line Chart - Multiple TimeStamp</CardTitle>
+              <CardDescription>{LineDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <LineChart
+                  accessibilityLayer
+                  data={LineChartData}
+                  margin={{
+                    left: 12,
+                    right: 12,
+                  }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="time"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) => value.slice(0, 3)}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent />}
+                  />
+                  {seriesKeys.map((key, i) => {
+                    return (
+                      <Line
+                        dataKey={key}
+                        type="monotone"
+                        stroke={chartcolors[i % chartcolors.length]}
+                        strokeWidth={2}
+                        dot={true}
+                      />
+                    );
+                  })}
+                </LineChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         </div>
         {/* Table Section */}
         <div className="rounded-2xl mt-5 p-4 ">
