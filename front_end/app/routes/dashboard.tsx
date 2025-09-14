@@ -23,6 +23,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "../components/ui/chart";
+import { StatusPill } from "../components/StatusPill";
 const BarDescription = "A bar chart";
 const LineDescription = "A line chart";
 
@@ -178,27 +179,54 @@ function Dashboard() {
           </Card>
         </div>
         {/* Table Section */}
-        <div className="rounded-2xl mt-5 p-4 ">
-          <table className="table-auto ">
-            <thead className="">
-              <tr className="bg-secondary text-primary rounded-2xl">
-                <th>Product</th>
-                <th>Category</th>
-                <th>Current Stock</th>
-                <th>Status</th>
-                <th>Last updated</th>
-              </tr>
-              {mockProducts.map((product) => (
-                <tr key={product.id} className="text-center">
-                  <td>{product.product}</td>
-                  <td>{product.category}</td>
-                  <td>{product.stock}</td>
-                  <td>{product.status}</td>
-                  <td>{product.updatedAt}</td>
+        <div className="rounded-2xl mt-5 p-4 bg-secondary shadow-sm">
+          <h2 className="text-lg font-semibold mb-4 text-primary">
+            Product Inventory
+          </h2>
+          {/* table */}
+          <div className="overflow-x-auto rounded-2xl">
+            <table className="w-full table-auto border-collapse bg-primary rounded-2xl overflow-hidden">
+              <thead>
+                <tr className="bg-gray-800 text-white rounded-t-2xl">
+                  <th className="px-4 py-3 text-left font-medium">Product</th>
+                  <th className="px-4 py-3 text-left font-medium">Category</th>
+                  <th className="px-4 py-3 text-center font-medium">
+                    Current Stock
+                  </th>
+                  <th className="px-4 py-3 text-center font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Last updated
+                  </th>
                 </tr>
-              ))}
-            </thead>
-          </table>
+              </thead>
+              <tbody>
+                {mockProducts.map((product, index) => (
+                  <tr
+                    key={product.id}
+                    className={`text-center border-b border-gray-600 hover:bg-gray-700 text-white ${
+                      index === mockProducts.length - 1 ? "rounded-b-2xl" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-left font-medium text-white">
+                      {product.product}
+                    </td>
+                    <td className="px-4 py-3 text-left text-gray-300">
+                      {product.category}
+                    </td>
+                    <td className="px-4 py-3 text-center font-semibold text-white">
+                      {product.stock}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <StatusPill status={product.status} />
+                    </td>
+                    <td className="px-4 py-3 text-left text-gray-300">
+                      {product.updatedAt}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </body>
