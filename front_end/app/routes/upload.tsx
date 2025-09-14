@@ -2,10 +2,19 @@ import { Upload as UploadIcon } from "lucide-react";
 import Button from "../components/ui/Button";
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
+import axios from "axios";
+
+// curl -X POST "http://localhost:8000/api/v1/estimate-stock" \
+//   -H "Content-Type: multipart/form-data" \
+//   -F "file=@supermarket_shelf.jpg" \
+//   -F "model_type=qwen-vl" \
+//   -F "products=banana,broccoli" \
+//   -F "confidence_threshold=0.7"
 
 export default function Upload() {
   const navigate = useNavigate();
 
+  const [isloading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,12 +49,38 @@ export default function Upload() {
     fileInputRef.current?.click();
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
+    setIsLoading(true);
     if (files.length > 0) {
       console.log("Uploading files:", files);
       // Add upload logic here
+      console.log(files);
 
-      navigate("/dashboard");
+      //post request to api
+      try {
+        const formData = new FormData();
+        formData.append("file", files[0]); // nếu chỉ gửi 1 file, nếu nhiều file thì lặp
+        formData.append("model_type", "qwen-vl");
+        formData.append("products", "banana,broccoli");
+        formData.append("confidence_threshold", "0.7");
+        console.log(formData);
+        const response = await axios.post(
+          "http://localhost:8000/api/v1/estimate-stock",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        console.log("Response:", response.data); //
+        // Ví dụ: navigate("/dashboard");
+      } catch (error) {
+        console.error("Upload failed:", error);
+      } finally {
+        setIsLoading(false);
+      }
+      // navigate("/dashboard");
     }
   };
 
@@ -117,7 +152,7 @@ export default function Upload() {
           onClick={handleUpload}
           disabled={files.length === 0}
         >
-          Upload {files.length > 0 ? `(${files.length} files)` : ""}
+          {isloading ? "uploading" : "upload"}
         </Button>
       </div>
     </div>
