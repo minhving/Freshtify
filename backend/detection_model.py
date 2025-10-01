@@ -1,0 +1,119 @@
+from transformers import DataProcessor, AutoModel
+
+from backend.imports import *
+
+class DetectionModel:
+    def __init__(self, model_id = "IDEA-Research/grounding-dino-base"):
+        self.model_id = model_id
+        self.device = None
+        self.processor = None
+        self.model_dec = None
+
+    def load_model(self):
+        load_dotenv()
+        hugging_face_token = os.getenv('HF_TOKEN')
+        login(token=hugging_face_token)
+
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.processor = AutoProcessor.from_pretrained(self.model_id)
+        self.model_dec = AutoModelForZeroShotObjectDetection.from_pretrained(self.model_id).to(self.device)
+        print("Loaded model sucessfully")
+
+    def show_gd_results(self ,img, results, score_thr = 0.2):
+        if isinstance(img, str):
+            img = Image.open(img).convert("RGB")
+        elif isinstance(img, torch.Tensor):
+            if img.ndim == 3 and img.shape[0] in (1, 3):
+                img = img.permute(1, 2, 0).detach().cpu().numpy()
+            else:
+                img = img.detach().cpu().numpy()
+            img = (img * 255).astype(np.uint8) if img.max() <= 1 else img.astype(np.uint8)
+            img = Image.fromarray(img)
+        elif not isinstance(img, Image.Image):
+            img = Image.fromarray(img)
+
+        r = results[0] if isinstance(results, (list, tuple)) else results
+        boxes = r["boxes"].detach().cpu().numpy()
+        scores = r["scores"].detach().cpu().numpy()
+        labels = r.get("labels", r.get("text_labels", []))
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(np.asarray(img))
+        for (x1, y1, x2, y2), s, lab in zip(boxes, scores, labels):
+            if s < score_thr:
+                continue
+            ax.add_patch(Rectangle((x1, y1), x2 - x1, y2 - y1, fill=False, linewidth=2, edgecolor='blue'))
+            ax.text(x1, max(0, y1 - 5), f"{lab} {s:.2f}",
+                    fontsize=9, color="white",
+                    bbox=dict(facecolor="blue", alpha=0.5, pad=2))
+        ax.axis("off")
+        plt.show()
+    def detect_fruits(self  , image, class_name):
+        text = class_name
+        inputs = self.processor(images=image, text=text, return_tensors="pt").to(self.device)
+        with torch.no_grad():
+            outputs = self.model_dec(**inputs)
+        results = self.processor.post_process_grounded_object_detection(
+            outputs,
+            inputs.input_ids,
+            target_sizes=[image.size[::-1]],
+            text_threshold=0.1,
+            threshold=0.1
+        )
+        self.show_gd_results(image, results)
+        return results
+
+    def iou_matrix(self, box, boxes):
+        x1 = np.maximum(box[0], boxes[:, 0])
+        y1 = np.maximum(box[1], boxes[:, 1])
+        x2 = np.minimum(box[2], boxes[:, 2])
+        y2 = np.minimum(box[3], boxes[:, 3])
+        inter = np.maximum(0, x2 - x1) * np.maximum(0, y2 - y1)
+        area_box = (box[2] - box[0]) * (box[3] - box[1])
+        area_boxes = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+        union = area_box + area_boxes - inter + 1e-9
+        return inter / union
+
+    def nms_class_agnostic(self,xyxy, scores, labels, iou_thr=0.5):
+        xyxy = np.asarray(xyxy, dtype=float)
+        scores = np.asarray(scores, dtype=float)
+        idxs = np.argsort(-scores)
+
+        keep = []
+        while idxs.size > 0:
+            i = idxs[0]
+            keep.append(i)
+            if idxs.size == 1:
+                break
+            rest = idxs[1:]
+            ious = self.iou_matrix(xyxy[i], xyxy[rest])
+            idxs = rest[ious <= iou_thr]
+        return sorted(keep)
+
+
+    def detect(self, image, class_name):
+        results_dec = self.detect_fruits(image, class_name)
+        dic_ind = {"potato section": [], "onion": [], "eggplant section": [], "tomato": [], 'cucumber': []}
+        for index in range(len(results_dec[0]['text_labels'])):
+            if results_dec[0]['text_labels'][index] not in dic_ind:
+                continue
+            if results_dec[0]['scores'][index] > 0:
+                dic_ind[results_dec[0]['text_labels'][index]].append(index)
+
+
+        xyxy, labels, scores = [], [], []
+
+        for fruit, index_list in dic_ind.items():
+            for i in index_list:
+                x1, y1, x2, y2 = results_dec[0]['boxes'][i]
+                xyxy.append([float(x1), float(y1), float(x2), float(y2)])
+                labels.append(fruit)
+                scores.append(float(results_dec[0]['scores'][i]))
+
+        keep = self.nms_class_agnostic(xyxy, scores, labels, iou_thr=0.5)
+
+        xyxy_final = [xyxy[i] for i in keep]
+        labels_final = [labels[i] for i in keep]
+        scores_final = [scores[i] for i in keep]
+
+        return xyxy_final, labels_final, scores_final
