@@ -73,8 +73,8 @@ class DetectionModel:
         area_boxes = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
         union = area_box + area_boxes - inter + 1e-9
         return inter / union
-
-    def nms_class_agnostic(self,xyxy, scores, labels, iou_thr=0.5):
+# Update contain_thr = 0 .9 for extra step 2
+    def nms_class_agnostic(self,xyxy, scores, labels, iou_thr=0.5, contain_thr=0.9):
         xyxy = np.asarray(xyxy, dtype=float)
         scores = np.asarray(scores, dtype=float)
         idxs = np.argsort(-scores)
@@ -87,7 +87,24 @@ class DetectionModel:
                 break
             rest = idxs[1:]
             ious = self.iou_matrix(xyxy[i], xyxy[rest])
-            idxs = rest[ious <= iou_thr]
+
+            # Step 2: containment filter
+            # If a smaller box j is covered > contain_thr (90%) by box i,
+            # then drop j even if IoU is low (nested box case).
+            contain = []
+            for j in rest:
+                inter_x1 = max(xyxy[i][0], xyxy[j][0])
+                inter_y1 = max(xyxy[i][1], xyxy[j][1])
+                inter_x2 = min(xyxy[i][2], xyxy[j][2])
+                inter_y2 = min(xyxy[i][3], xyxy[j][3])
+                inter_area = max(0, inter_x2 - inter_x1) * max(0, inter_y2 - inter_y1)
+                area_j = (xyxy[j][2] - xyxy[j][0]) * (xyxy[j][3] - xyxy[j][1])
+                if area_j > 0 and inter_area / area_j > contain_thr:
+                    contain.append(j)
+        #Step 1 + 2 combined           
+        mask = (ious <= iou_thr)
+        idxs = rest[mask & (~np.isin(rest, contain))]
+
         return sorted(keep)
 
 
