@@ -55,11 +55,7 @@ def extract_masks(results):
 
     return out
 
-def check_has_stock(mask, depth_map, bbox, min_diff=0.01):
-    
-    #Check if section has stock by comparing min depth of object vs background.
-    #mask: binary mask
-    #min_diff: threshold for stock detection
+def check_has_stock(mask, depth_map, bbox, min_diff=0.01, min_obj_pixels=200):
     x1, y1, x2, y2 = map(int, bbox)
     submask = mask[y1:y2, x1:x2]
     subdepth = depth_map[y1:y2, x1:x2]
@@ -67,21 +63,25 @@ def check_has_stock(mask, depth_map, bbox, min_diff=0.01):
     obj_depths = subdepth[submask > 0]
     bg_depths  = subdepth[submask == 0]
 
-    # Nếu không có object pixel → chắc chắn empty
+    # Nếu không có object → empty
     if obj_depths.size == 0:
         return False, None, None
 
-    # Nếu không có background pixel (mask full object) thì overide là có stock
+    depth_obj = np.median(obj_depths)
+
+    # Nếu không có background (mask full object) → coi như có stock
     if bg_depths.size == 0:
-        return True, obj_depths.min(), None
+        return True, depth_obj, None
 
-    depth_obj_min = obj_depths.min()
-    depth_bg_min  = bg_depths.min()
+    depth_bg = np.median(bg_depths)
+    diff = abs(depth_bg - depth_obj)
+    
+    if diff < min_diff and obj_depths.size > min_obj_pixels:
+        return True, depth_obj, depth_bg
 
-    diff = abs(depth_obj_min - depth_bg_min)
-    has_stock = diff >= min_diff
+    return diff >= min_diff, depth_obj, depth_bg
 
-    return has_stock, depth_obj_min, depth_bg_min
+
 
 
 def estimate_fullness(mask, depth_map, bbox, min_pixels=50):
