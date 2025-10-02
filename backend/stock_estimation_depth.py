@@ -75,7 +75,7 @@ def check_has_stock(mask, depth_map, bbox, min_diff=0.01, min_obj_pixels=200):
 
     depth_bg = np.median(bg_depths)
     diff = abs(depth_bg - depth_obj)
-    
+    # Avoid empty box due object pixel overlap background pixel
     if diff < min_diff and obj_depths.size > min_obj_pixels:
         return True, depth_obj, depth_bg
 
