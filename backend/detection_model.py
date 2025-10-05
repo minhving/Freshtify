@@ -10,6 +10,14 @@ class DetectionModel:
         self.model_dec = None
 
     def load_model(self):
+        from dotenv import load_dotenv
+        import os
+
+        env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+        env_path = os.path.abspath(env_path)
+        load_dotenv(dotenv_path=env_path)
+
+        login(token=hugging_face_token)
         load_dotenv()
         hugging_face_token = os.getenv('HF_TOKEN')
         login(token=hugging_face_token)
@@ -48,7 +56,8 @@ class DetectionModel:
                     bbox=dict(facecolor="blue", alpha=0.5, pad=2))
         ax.axis("off")
         plt.show()
-    def detect_fruits(self  , image, class_name):
+
+    def detect_fruits(self, image, class_name):
         text = class_name
         inputs = self.processor(images=image, text=text, return_tensors="pt").to(self.device)
         with torch.no_grad():
@@ -108,15 +117,16 @@ class DetectionModel:
         return sorted(keep)
 
 
-    def detect(self, image, class_name):
+    def detect(self, image, class_name,score_thr=0.2, max_per_class=20):
         results_dec = self.detect_fruits(image, class_name)
         dic_ind = {"potato section": [], "onion": [], "eggplant section": [], "tomato": [], 'cucumber': []}
-        for index in range(len(results_dec[0]['text_labels'])):
-            if results_dec[0]['text_labels'][index] not in dic_ind:
-                continue
-            if results_dec[0]['scores'][index] > 0:
-                dic_ind[results_dec[0]['text_labels'][index]].append(index)
 
+        for idx, label in enumerate(results_dec[0]['text_labels']):
+            score = float(results_dec[0]['scores'][idx])
+            if label not in dic_ind:
+                continue
+            if score >= score_thr:  # lọc score thấp
+                dic_ind[label].append(idx)
 
         xyxy, labels, scores = [], [], []
 
