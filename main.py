@@ -18,15 +18,12 @@ if __name__ == "__main__":
     segmentation_model.load()
 
     # Detection
-    print("Running detection...")
     xyxy, labels, scores = detection_model.detect(image, class_names)
 
     #Segmentation
-    print("Running segmentation...")
     results_seg = segmentation_model.segment(image_path, xyxy, labels)
     masks_dict = extract_masks(results_seg)
     #: Depth estimation
-    print("Loading MiDaS depth model...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     depth_model, depth_tf = load_midas("DPT_Hybrid", device)
     depth_map = get_depth_map(image_path, depth_model, depth_tf, device)
@@ -40,5 +37,4 @@ if __name__ == "__main__":
             print(f"{cls}: {fullness:.1f}% ")
 
     # Visualize
-    print("\nSaving visualization...")
     visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
