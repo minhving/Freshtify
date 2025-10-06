@@ -9,31 +9,28 @@ image_path = "../Captone_AI/dataset/test_image.jpg"
 class_names = 'potato section . onion . eggplant section . tomato . cucumber .'
 
 if __name__ == "__main__":
+    #Initualize and load model
     detection_model = DetectionModel()
     segmentation_model = SegmentationModel("sam2.1_l.pt")
+    depth_model = DepthModel()
     #gemini_model = Gemini()
 
     detection_model.load_model()
     segmentation_model.load()
+    depth_model.load()
 
     # Detection
     xyxy, labels, scores = detection_model.detect(image, class_names)
 
-    # #Segmentation
-    # results_seg = segmentation_model.segment(image_path, xyxy, labels)
-    # masks_dict = extract_masks(results_seg)
-    # #: Depth estimation
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    # depth_model, depth_tf = load_midas("DPT_Hybrid", device)
-    # depth_map = get_depth_map(image_path, depth_model, depth_tf, device)
-    #
-    # # Compute fullness (depth-based)
-    # stock_dict = compute_stock(results_seg, depth_map)
-    #
-    # print("\nStock estimation results (depth-based):")
-    # for cls, values in stock_dict.items():
-    #     for fullness, layers in values:
-    #         print(f"{cls}: {fullness:.1f}% ")
-    #
-    # # Visualize
-    # visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
+    #Segmentation
+    results_seg = segmentation_model.segment(image_path, xyxy, labels)
+
+    # Compute fullness (depth-based)
+    stock_dict = depth_model.compute_stock(results_seg,image_path)
+
+    # Visualize
+    depth_model.visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
+
+    #Calculate probs
+    probs = depth_model.cal_probs(stock_dict)
+    print(probs)

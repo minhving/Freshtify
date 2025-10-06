@@ -81,9 +81,7 @@ class DetectionModel:
 
         keep = []
         while idxs.size > 0:
-
             i = idxs[0]
-            print(i)
             keep.append(i)
             if idxs.size == 1:
                 break
@@ -103,14 +101,14 @@ class DetectionModel:
                 area_j = (xyxy[j][2] - xyxy[j][0]) * (xyxy[j][3] - xyxy[j][1])
                 if area_j > 0 and inter_area / area_j > contain_thr:
                     contain.append(j)
-        #Step 1 + 2 combined           
-        mask = (ious <= iou_thr)
-        idxs = rest[mask & (~np.isin(rest, contain))]
+            #Step 1 + 2 combined
+            mask = (ious <= iou_thr)
+            idxs = rest[mask & (~np.isin(rest, contain))]
 
         return sorted(keep)
 
 
-    def detect(self, image, class_name,score_thr=0.2, max_per_class=20):
+    def detect(self, image, class_name,score_thr=0, max_per_class=20):
         results_dec = self.detect_fruits(image, class_name)
         dic_ind = {"potato section": [], "onion": [], "eggplant section": [], "tomato": [], 'cucumber': []}
 
@@ -130,10 +128,7 @@ class DetectionModel:
                 labels.append(fruit)
                 scores.append(float(results_dec[0]['scores'][i]))
 
-        print("Doing clear")
         keep = self.nms_class_agnostic(xyxy, scores, labels, iou_thr=0.5)
-        print("Clean done")
-
 
         xyxy_final = [xyxy[i] for i in keep]
         labels_final = [labels[i] for i in keep]
