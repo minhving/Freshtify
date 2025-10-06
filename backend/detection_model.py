@@ -10,18 +10,9 @@ class DetectionModel:
         self.model_dec = None
 
     def load_model(self):
-        from dotenv import load_dotenv
-        import os
-
-        env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-        env_path = os.path.abspath(env_path)
-        load_dotenv(dotenv_path=env_path)
-
-        login(token=hugging_face_token)
         load_dotenv()
         hugging_face_token = os.getenv('HF_TOKEN')
         login(token=hugging_face_token)
-
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = AutoProcessor.from_pretrained(self.model_id)
         self.model_dec = AutoModelForZeroShotObjectDetection.from_pretrained(self.model_id).to(self.device)
@@ -90,7 +81,9 @@ class DetectionModel:
 
         keep = []
         while idxs.size > 0:
+
             i = idxs[0]
+            print(i)
             keep.append(i)
             if idxs.size == 1:
                 break
@@ -137,7 +130,10 @@ class DetectionModel:
                 labels.append(fruit)
                 scores.append(float(results_dec[0]['scores'][i]))
 
+        print("Doing clear")
         keep = self.nms_class_agnostic(xyxy, scores, labels, iou_thr=0.5)
+        print("Clean done")
+
 
         xyxy_final = [xyxy[i] for i in keep]
         labels_final = [labels[i] for i in keep]
