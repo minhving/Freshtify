@@ -3,7 +3,8 @@ Configuration management for the AI Stock Level Estimation API.
 """
 
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from pydantic import field_validator
+from typing import List, Optional, Union
 import os
 
 class Settings(BaseSettings):
@@ -15,7 +16,23 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # CORS Settings
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    ALLOWED_ORIGINS: Union[List[str], str] = [
+        "http://localhost:3000", 
+        "http://localhost:8080", 
+        "http://localhost:5173",  # React Router dev server
+        "http://localhost:8001"   # Backend port
+    ]
+    
+    @field_validator('ALLOWED_ORIGINS', mode='before')
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            # Handle comma-separated or space-separated values
+            if ',' in v:
+                return [origin.strip() for origin in v.split(',')]
+            else:
+                return [origin.strip() for origin in v.split()]
+        return v
     
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB

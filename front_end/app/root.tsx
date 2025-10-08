@@ -1,6 +1,7 @@
 import {
   isRouteErrorResponse,
   Links,
+  Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
@@ -28,11 +29,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Freshtify - AI Stock Level Estimation</title>
-        <meta
-          name="description"
-          content="AI-powered supermarket stock level estimation platform"
-        />
+        <Meta />
         <Links />
       </head>
       <body className="m-0 min-h-screen overflow-x-hidden bg-slate-100 antialiased">

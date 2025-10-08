@@ -163,3 +163,51 @@ async def estimate_stock_batch(
     except Exception as e:
         logger.error(f"Batch estimation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Batch estimation failed: {str(e)}")
+
+
+@router.post("/estimate-stock-integrated", response_model=StockEstimationResponse)
+async def estimate_stock_integrated(
+    file: UploadFile = File(...),
+    products: str = Form("banana,broccoli"),
+    confidence_threshold: float = Form(0.7)
+):
+    """
+    Estimate stock levels using integrated AI models (detection + segmentation + depth estimation).
+    """
+    start_time = time.time()
+    
+    try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        # Process file
+        file_path = await file_processor.save_uploaded_file(file)
+        logger.info(f"Processing file: {file_path}")
+        
+        # Parse products
+        product_list = [p.strip().lower() for p in products.split(',')]
+        
+        # Use integrated models
+        results = await ai_engine.process_with_integrated_models(file_path, product_list)
+        
+        processing_time = time.time() - start_time
+        
+        return StockEstimationResponse(
+            success=True,
+            message="Stock estimation completed successfully using integrated AI models",
+            processing_time=processing_time,
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            results=results,
+            model_used="integrated-ai",
+            image_metadata={
+                "filename": file.filename,
+                "size": file.size if hasattr(file, 'size') else 0
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Integrated estimation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Integrated estimation failed: {str(e)}")

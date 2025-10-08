@@ -4,11 +4,16 @@ AI Engine for stock level estimation using various AI models.
 
 import logging
 import asyncio
+import sys
+import os
 from typing import List, Dict, Any, Optional
 import torch
 import numpy as np
 from PIL import Image
 import cv2
+
+# Add the backend_model directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'backend_model'))
 
 from app.models.schemas import ProductStockInfo, ProductType, StockLevel, ModelInfo
 from app.core.config import settings
@@ -302,3 +307,75 @@ class AIEngine:
         ]
         
         return models
+    
+    async def process_with_integrated_models(self, image_path: str, products: List[str]) -> List[ProductStockInfo]:
+        """
+        Process image using the integrated backend_model components.
+        """
+        try:
+            # Import the integrated models
+            from detection_model import DetectionModel
+            from segmentation_model import SegmentationModel
+            from stock_estimation_depth import DepthModel
+            from prob_calculation import cal_probs
+            
+            logger.info("Initializing integrated AI models...")
+            
+            # Initialize models
+            detection_model = DetectionModel()
+            segmentation_model = SegmentationModel("sam2.1_l.pt")
+            depth_model = DepthModel()
+            
+            # Load models
+            detection_model.load_model()
+            segmentation_model.load()
+            depth_model.load()
+            
+            # Load and process image
+            image = Image.open(image_path)
+            class_names = ' '.join(products)
+            
+            # Detection
+            logger.info("Running object detection...")
+            xyxy, labels, scores = detection_model.detect(image, class_names)
+            
+            # Segmentation
+            logger.info("Running image segmentation...")
+            results_seg = segmentation_model.segment(image_path, xyxy, labels)
+            
+            # Compute stock levels using depth estimation
+            logger.info("Computing stock levels...")
+            stock_dict = depth_model.compute_stock(results_seg, image_path)
+            
+            # Calculate probabilities
+            probs = depth_model.cal_probs(stock_dict)
+            
+            # Convert to ProductStockInfo format
+            results = []
+            for product in products:
+                if product in stock_dict:
+                    stock_percentage = stock_dict[product]
+                    confidence = probs.get(product, 0.5) if probs else 0.5
+                    
+                    # Determine stock level
+                    if stock_percentage < settings.LOW_STOCK_THRESHOLD:
+                        stock_level = StockLevel.LOW
+                    elif stock_percentage > settings.OVERSTOCK_THRESHOLD:
+                        stock_level = StockLevel.OVERSTOCKED
+                    else:
+                        stock_level = StockLevel.NORMAL
+                    
+                    results.append(ProductStockInfo(
+                        product=product,
+                        stock_percentage=stock_percentage,
+                        stock_status=stock_level,
+                        confidence=confidence,
+                        reasoning=f"Integrated AI model detected {product} with {stock_percentage:.1%} stock level"
+                    ))
+            
+            logger.info(f"Successfully processed {len(results)} products")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error in integrated model processing: {e}")
+            raise

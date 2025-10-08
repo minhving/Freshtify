@@ -1,0 +1,7 @@
+timm
+torch
+ultralytics
+dotenv
+huggingface_hub
+google
+google-genai
