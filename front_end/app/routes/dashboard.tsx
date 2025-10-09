@@ -1,4 +1,5 @@
 import { TrendingUp } from "lucide-react";
+import { useState, useEffect } from "react";
 import {
   Bar,
   BarChart,
@@ -67,30 +68,92 @@ const chartcolors = [
 ];
 
 function Dashboard() {
+  const [analysisData, setAnalysisData] = useState(null);
+  const [products, setProducts] = useState(mockProducts);
+  const [summaryStats, setSummaryStats] = useState({
+    total: 48,
+    low: 5,
+    medium: 12,
+    high: 33
+  });
+
+  useEffect(() => {
+    // Get the latest analysis data from localStorage
+    const latestAnalysis = localStorage.getItem('latestAnalysis');
+    if (latestAnalysis) {
+      try {
+        const data = JSON.parse(latestAnalysis);
+        console.log('Dashboard received analysis data:', data);
+        setAnalysisData(data);
+        
+        // Convert API response to dashboard format
+        if (data.results && data.results.length > 0) {
+          const realProducts = data.results.map((result, index) => ({
+            id: index + 1,
+            product: result.product.charAt(0).toUpperCase() + result.product.slice(1),
+            category: result.product.toLowerCase() === 'banana' || result.product.toLowerCase() === 'avocado' ? 'Fruit' : 'Vegetable',
+            stock: `${Math.round(result.stock_percentage * 100)}%`,
+            status: result.stock_status === 'LOW' ? 'Low' : 
+                   result.stock_status === 'NORMAL' ? 'Medium' : 
+                   result.stock_status === 'OVERSTOCKED' ? 'High' : 'Medium',
+            updatedAt: new Date().toLocaleString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })
+          }));
+          
+          setProducts(realProducts);
+          
+          // Calculate summary stats
+          const lowCount = realProducts.filter(p => p.status === 'Low').length;
+          const mediumCount = realProducts.filter(p => p.status === 'Medium').length;
+          const highCount = realProducts.filter(p => p.status === 'High').length;
+          
+          setSummaryStats({
+            total: realProducts.length,
+            low: lowCount,
+            medium: mediumCount,
+            high: highCount
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing analysis data:', error);
+      }
+    }
+  }, []);
+
+  // Create chart data from real products
+  const BarChartData = products.map((product) => ({
+    name: product.product,
+    stock: parseInt(product.stock.replace('%', ''))
+  }));
+
   return (
     <body className="">
       <div className="bg-primary rounded-4xl max-w-7xl mx-5 xl:mx-auto mt-5 px-4 sm:px-6 lg:px-8 py-5">
         <h1 className="text-xl font-bold">Produce Section</h1>
         {/* // Placeholder for last analyzed  time */}
-        <p>Last analyzed: Today, 2:45PM</p>
+        <p>Last analyzed: {analysisData ? new Date(analysisData.timestamp).toLocaleString() : 'Today, 2:45PM'}</p>
         {/* Grid for total products, low stock, medium stock, high stock */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-5">
-          {/* Total Produts */}
+          {/* Total Products */}
           <div className="bg-secondary rounded-2xl px-4 py-4">
             <h4 className="text-primary font-medium">Total Products</h4>
-            <p className="text-primary text-3xl font-semibold">48</p>
+            <p className="text-primary text-3xl font-semibold">{summaryStats.total}</p>
           </div>
           <div className="bg-lowStock-bg rounded-2xl px-4 py-4">
             <h4 className="text-lowStock-text font-medium">Low Stocks</h4>
-            <p className="text-primary text-3xl font-semibold">5</p>
+            <p className="text-primary text-3xl font-semibold">{summaryStats.low}</p>
           </div>
           <div className="bg-mediumStock-bg rounded-2xl px-4 py-4">
             <h4 className="text-mediumStock-text font-medium">Medium Stock</h4>
-            <p className="text-primary text-3xl font-semibold">12</p>
+            <p className="text-primary text-3xl font-semibold">{summaryStats.medium}</p>
           </div>
           <div className="bg-highStock-bg rounded-2xl px-4 py-4">
             <h4 className="text-highStock-text font-medium">High Stock</h4>
-            <p className="text-primary text-3xl font-semibold">33</p>
+            <p className="text-primary text-3xl font-semibold">{summaryStats.high}</p>
           </div>
         </div>
       </div>
@@ -188,7 +251,7 @@ function Dashboard() {
                 <th>Status</th>
                 <th>Last updated</th>
               </tr>
-              {mockProducts.map((product) => (
+              {products.map((product) => (
                 <tr key={product.id} className="text-center">
                   <td>{product.product}</td>
                   <td>{product.category}</td>

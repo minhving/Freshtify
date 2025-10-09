@@ -66,6 +66,10 @@ export default function Upload() {
         );
         
         console.log("AI Analysis Response:", response.data);
+        
+        // Store the analysis results in localStorage for the dashboard
+        localStorage.setItem('latestAnalysis', JSON.stringify(response.data));
+        
         navigate("/dashboard");
       } catch (error) {
         console.error("Upload failed:", error);

@@ -261,3 +261,27 @@ class FileProcessor:
             return False
         
         return True
+    
+    async def save_uploaded_file(self, file) -> str:
+        """Save uploaded file to disk and return the file path."""
+        try:
+            # Create uploads directory if it doesn't exist
+            os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+            
+            # Generate unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_extension = os.path.splitext(file.filename)[1]
+            filename = f"{timestamp}_{file.filename}"
+            file_path = os.path.join(settings.UPLOAD_DIR, filename)
+            
+            # Save file
+            async with aiofiles.open(file_path, 'wb') as f:
+                content = await file.read()
+                await f.write(content)
+            
+            logger.info(f"File saved successfully: {file_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Failed to save uploaded file: {e}")
+            raise
