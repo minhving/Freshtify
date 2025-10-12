@@ -14,7 +14,7 @@ export const API_ENDPOINTS = {
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
-  TIMEOUT: 30000, // 30 seconds
+  TIMEOUT: 300000, // 5 minutes for AI processing
   HEADERS: {
     'Content-Type': 'multipart/form-data',
   },

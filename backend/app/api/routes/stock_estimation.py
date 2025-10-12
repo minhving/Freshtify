@@ -32,105 +32,122 @@ async def run_main_py_analysis(image_path: str, products: List[str]) -> List[Pro
     Run main.py with the uploaded image and capture the results.
     """
     try:
-        # Get the project root directory
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # Get the project root directory (go up 4 levels from backend/app/api/routes/stock_estimation.py)
+        # This gives us: backend/app/api/routes -> backend/app/api -> backend/app -> backend -> project_root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
         
-        # Create analysis script based on your main.py
-        analysis_script = f"""
-import sys
-import os
-import json
-
-# Add the project root to the path
-sys.path.append(r"{project_root}")
-
-# Import modules (same as your main.py)
+        dataset_path = os.path.join(project_root, "dataset", "test_image.jpg")
+        import shutil
+        shutil.copy2(image_path, dataset_path)
+        logger.info(f"Copied uploaded image to {dataset_path}")
+        
+        # Create a modified main.py that outputs JSON results
+        main_py_path = os.path.join(project_root, "main.py")
+        modified_main_py = f"""
 from backend_model.imports import *
 from backend_model.detection_model import *
 from backend_model.segmentation_model import *
 from backend_model.prob_calculation import *
 from backend_model.stock_estimation_depth import *
+import json
 
-# Use the uploaded image (same as your main.py)
-image = Image.open(r"{image_path}")
-image_path = r"{image_path}"
+image = Image.open("dataset/test_image.jpg")
+image_path = "dataset/test_image.jpg"
 class_names = ' '.join({products})
 
-# Initialize and load models (same as your main.py)
-detection_model = DetectionModel()
-segmentation_model = SegmentationModel("sam2.1_l.pt")
-depth_model = DepthModel()
+if __name__ == "__main__":
+    # Initialize and load models
+    detection_model = DetectionModel()
+    segmentation_model = SegmentationModel("sam2.1_l.pt")
+    depth_model = DepthModel()
 
-detection_model.load_model()
-segmentation_model.load()
-depth_model.load()
+    detection_model.load_model()
+    segmentation_model.load()
+    depth_model.load()
 
-# Detection (same as your main.py)
-xyxy, labels, scores = detection_model.detect(image, class_names)
+    # Detection
+    xyxy, labels, scores = detection_model.detect(image, class_names)
 
-# Segmentation (same as your main.py)
-results_seg = segmentation_model.segment(image_path, xyxy, labels)
+    # Segmentation
+    results_seg = segmentation_model.segment(image_path, xyxy, labels)
 
-# Compute stock levels (same as your main.py)
-stock_dict = depth_model.compute_stock(results_seg, image_path)
+    # Compute fullness (depth-based)
+    stock_dict = depth_model.compute_stock(results_seg, image_path)
 
-# Calculate probabilities (same as your main.py)
-probs = depth_model.cal_probs(stock_dict)
+    # Visualize
+    depth_model.visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
 
-# Output results as JSON for the dashboard
-results = []
-for product in {products}:
-    if product in stock_dict:
-        results.append({{
-            "product": product,
-            "stock_percentage": stock_dict[product] / 100,  # Convert to 0-1 range
-            "confidence": probs.get(product, 0.5) if probs else 0.5,
-            "reasoning": f"AI model detected {{product}} with {{stock_dict[product]:.1f}}% stock level"
-        }})
-
-print(json.dumps(results))
+    # Calculate probs
+    probs = depth_model.cal_probs(stock_dict)
+    
+    # Prepare results in the format expected by the API
+    results = []
+    for product in {products}:
+        if product in stock_dict:
+            results.append({{
+                "product": product,
+                "stock_percentage": stock_dict[product] / 100,
+                "confidence": probs.get(product, 0.5) if probs else 0.5,
+                "reasoning": f"AI model detected {{product}} with {{stock_dict[product]:.1f}}% stock level"
+            }})
+    
+    # Output results as JSON
+    print(json.dumps(results))
 """
         
-        # Write the analysis script in the project root
-        script_path = os.path.join(project_root, "run_analysis.py")
-        with open(script_path, "w") as f:
-            f.write(analysis_script)
+        # Write the modified main.py
+        with open(main_py_path, "w") as f:
+            f.write(modified_main_py)
         
-        # Run the analysis script from project root
+        # Run the actual main.py from project root
         logger.info(f"Running main.py analysis on {image_path}")
+        logger.info(f"Project root: {project_root}")
+        logger.info("This may take 2-5 minutes for AI model processing...")
+        
+        # Use absolute path to main.py
+        main_py_absolute_path = os.path.join(project_root, "main.py")
+        logger.info(f"Main.py absolute path: {main_py_absolute_path}")
+        
+        # Check if main.py exists
+        if not os.path.exists(main_py_absolute_path):
+            logger.error(f"Main.py file not found at: {main_py_absolute_path}")
+            raise Exception(f"Main.py file not found at: {main_py_absolute_path}")
+        
+        # Check if dataset directory exists
+        dataset_dir = os.path.join(project_root, "dataset")
+        if not os.path.exists(dataset_dir):
+            logger.error(f"Dataset directory not found at: {dataset_dir}")
+            raise Exception(f"Dataset directory not found at: {dataset_dir}")
+        
         result = subprocess.run(
-            ["python", "run_analysis.py"],
+            ["python", main_py_absolute_path],
             capture_output=True,
             text=True,
             cwd=project_root,
-            timeout=300  # 5 minute timeout
+            timeout=600  # 10 minute timeout for AI processing
         )
         
         # Log the full output for debugging
-        logger.info(f"Script stdout: {result.stdout}")
-        logger.info(f"Script stderr: {result.stderr}")
-        
-        # Clean up the script file
-        if os.path.exists(script_path):
-            os.remove(script_path)
+        logger.info(f"Main.py stdout: {result.stdout}")
+        logger.info(f"Main.py stderr: {result.stderr}")
         
         if result.returncode != 0:
-            logger.error(f"AI analysis failed: {result.stderr}")
+            logger.error(f"Main.py analysis failed: {result.stderr}")
             logger.info("Falling back to basic analysis...")
             
             # Fallback to basic analysis
             return await ai_engine.estimate_stock_basic_cv(image_path, products, 0.7)
         
-        # Parse the JSON output
+        # Parse the JSON output from main.py
         try:
             # Get the last line which should contain the JSON
             output_lines = result.stdout.strip().split('\n')
             json_line = output_lines[-1] if output_lines else ""
             analysis_results = json.loads(json_line)
         except (json.JSONDecodeError, IndexError) as e:
-            logger.error(f"Failed to parse AI results: {result.stdout}")
+            logger.error(f"Failed to parse main.py results: {result.stdout}")
             logger.error(f"JSON decode error: {e}")
-            raise Exception("Failed to parse AI analysis results")
+            raise Exception("Failed to parse main.py analysis results")
         
         # Convert to ProductStockInfo format
         results = []
@@ -154,11 +171,11 @@ print(json.dumps(results))
                 reasoning=item["reasoning"]
             ))
         
-        logger.info(f"AI analysis completed successfully for {len(results)} products")
+        logger.info(f"Main.py analysis completed successfully for {len(results)} products")
         return results
         
     except Exception as e:
-        logger.error(f"Error running AI analysis: {e}")
+        logger.error(f"Error running main.py analysis: {e}")
         raise
 
 # Initialize services

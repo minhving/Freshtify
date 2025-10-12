@@ -7,9 +7,16 @@ class DepthModel:
         self.model_depth = None
         self.transform = None
     def load(self):
-        load_dotenv()
+        try:
+            load_dotenv()
+        except Exception as e:
+            print(f"Warning: Could not load .env file: {e}")
+        
         hugging_face_token = os.getenv('HF_TOKEN')
-        login(token=hugging_face_token)
+        if hugging_face_token and hugging_face_token != 'hf_your_token_here':
+            login(token=hugging_face_token)
+        else:
+            print("Warning: No valid HF_TOKEN found, using public models")
 
         self.model_depth = torch.hub.load("intel-isl/MiDaS", self.model_id)
         self.model_depth.eval().to(self.device)

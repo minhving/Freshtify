@@ -15,6 +15,7 @@ export default function Upload() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [progress, setProgress] = useState(0); // tracking progress percentage
   const [showAnalyzing, setShowAnalyzing] = useState(false); // show analyzing overlay
+  const [error, setError] = useState<string | null>(null); // error state
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sample images data
@@ -110,6 +111,7 @@ export default function Upload() {
       setIsLoading(true);
       setShowAnalyzing(true);
       setProgress(0);
+      setError(null);
 
       try {
         const formData = new FormData();
@@ -118,6 +120,12 @@ export default function Upload() {
         formData.append("confidence_threshold", "0.7");
 
         console.log("Uploading to integrated AI endpoint...");
+        
+        // Simulate progress updates
+        const progressInterval = setInterval(() => {
+          setProgress(prev => Math.min(prev + 10, 90));
+        }, 2000);
+
         const response = await axios.post(
           API_ENDPOINTS.ESTIMATE_STOCK_INTEGRATED,
           formData,
@@ -127,6 +135,9 @@ export default function Upload() {
           }
         );
         
+        clearInterval(progressInterval);
+        setProgress(100);
+        
         console.log("AI Analysis Response:", response.data);
         
         // Store the analysis results in localStorage for the dashboard
@@ -134,12 +145,20 @@ export default function Upload() {
         
         // Navigate to dashboard
         navigate("/dashboard");
-      } catch (error) {
+      } catch (error: any) {
         console.error("Upload failed:", error);
-        // Handle error - you might want to show an error message
+        
+        if (error.code === 'ECONNABORTED') {
+          setError("AI analysis is taking longer than expected. Please try again with a smaller image or wait a bit longer.");
+        } else if (error.response?.status === 500) {
+          setError("Server error during analysis. Please try again.");
+        } else {
+          setError("Upload failed. Please try again.");
+        }
       } finally {
         setIsLoading(false);
         setShowAnalyzing(false);
+        setProgress(0);
       }
     }
   };
@@ -270,6 +289,13 @@ export default function Upload() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-400 text-center">{error}</p>
             </div>
           )}
 

@@ -10,9 +10,16 @@ class DetectionModel:
         self.model_dec = None
 
     def load_model(self):
-        load_dotenv()
+        try:
+            load_dotenv()
+        except Exception as e:
+            print(f"Warning: Could not load .env file: {e}")
+        
         hugging_face_token = os.getenv('HF_TOKEN')
-        login(token=hugging_face_token)
+        if hugging_face_token and hugging_face_token != 'hf_your_token_here':
+            login(token=hugging_face_token)
+        else:
+            print("Warning: No valid HF_TOKEN found, using public models")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = AutoProcessor.from_pretrained(self.model_id)
         self.model_dec = AutoModelForZeroShotObjectDetection.from_pretrained(self.model_id).to(self.device)
