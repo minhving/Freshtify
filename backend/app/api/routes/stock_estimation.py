@@ -162,28 +162,21 @@ if __name__ == "__main__":
             probs_dict = ast.literal_eval(probs_line)
             logger.info(f"Parsed probabilities: {probs_dict}")
             
-            # Convert to the expected format
+            # Convert to the expected format using the actual product names and stock percentages from main.py
             analysis_results = []
-            for product in products:
-                if product in probs_dict:
-                    # Use the probability as confidence, and estimate stock percentage
-                    confidence = probs_dict[product] / 100  # Convert percentage to 0-1 range
-                    stock_percentage = min(confidence * 1.2, 0.95)  # Estimate stock based on confidence
-                    
-                    analysis_results.append({
-                        "product": product,
-                        "stock_percentage": stock_percentage,
-                        "confidence": confidence,
-                        "reasoning": f"AI model detected {product} with {probs_dict[product]:.1f}% confidence"
-                    })
-                else:
-                    # If product not detected, provide default values
-                    analysis_results.append({
-                        "product": product,
-                        "stock_percentage": 0.3,  # Low stock
-                        "confidence": 0.1,  # Low confidence
-                        "reasoning": f"No AI detection for {product}"
-                    })
+            
+            # Use the actual product names from main.py output
+            for main_py_product, stock_value in probs_dict.items():
+                # Use the actual stock percentage from main.py (already in 0-100 range)
+                stock_percentage = stock_value / 100  # Convert to 0-1 range
+                confidence = min(stock_percentage * 1.1, 0.95)  # Confidence based on stock level
+                
+                analysis_results.append({
+                    "product": main_py_product,  # Use the actual product name from main.py
+                    "stock_percentage": stock_percentage,
+                    "confidence": confidence,
+                    "reasoning": f"AI model detected {main_py_product} with {stock_value:.1f}% stock level"
+                })
                     
         except (ValueError, SyntaxError, IndexError) as e:
             logger.error(f"Failed to parse main.py probabilities: {result.stdout}")

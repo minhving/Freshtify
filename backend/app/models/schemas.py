@@ -29,7 +29,7 @@ class StockEstimationRequest(BaseModel):
 
 class ProductStockInfo(BaseModel):
     """Information about a product's stock level."""
-    product: ProductType
+    product: str  # Changed from ProductType to str to allow any product name
     stock_percentage: float = Field(ge=0.0, le=1.0, description="Stock level as percentage (0-1)")
     stock_status: StockLevel
     confidence: float = Field(ge=0.0, le=1.0, description="Model confidence in the estimation")
