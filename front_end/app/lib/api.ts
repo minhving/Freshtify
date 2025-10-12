@@ -2,7 +2,7 @@
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
     ? "https://your-production-api.com"
-    : "http://localhost:8000";
+    : "http://localhost:8001";
 
 export const API_ENDPOINTS = {
   HEALTH: `${API_BASE_URL}/api/v1/health`,
