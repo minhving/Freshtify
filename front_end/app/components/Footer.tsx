@@ -2,10 +2,10 @@ import { Link } from "react-router";
 
 function Footer() {
   const footerLinks = [
-    { name: "Product", href: "/" },
-    { name: "Solutions", href: "/" },
-    { name: "Resources", href: "/" },
-    { name: "Pricing", href: "/" },
+    { name: "Product", href: "/product" },
+    { name: "Solutions", href: "/solutions" },
+    { name: "Resources", href: "/resources" },
+    { name: "Pricing", href: "/pricing" },
   ];
   return (
     // <footer className="w-full bg-primary shadow px-20 py-3 flex flex-col items-center justify-center">

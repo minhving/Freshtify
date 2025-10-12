@@ -1,7 +1,8 @@
 // API Configuration for Freshtify Frontend
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://your-production-api.com' 
-  : 'http://localhost:8001';
+const API_BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://your-production-api.com"
+    : "http://localhost:8000";
 
 export const API_ENDPOINTS = {
   HEALTH: `${API_BASE_URL}/api/v1/health`,
@@ -16,6 +17,6 @@ export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
   TIMEOUT: 300000, // 5 minutes for AI processing
   HEADERS: {
-    'Content-Type': 'multipart/form-data',
+    "Content-Type": "multipart/form-data",
   },
 } as const;

@@ -12,9 +12,9 @@ import json
 from datetime import datetime
 
 from app.models.schemas import (
-    StockEstimationRequest, 
-    StockEstimationResponse, 
-    ProductStockInfo, 
+    StockEstimationRequest,
+    StockEstimationResponse,
+    ProductStockInfo,
     ProductType,
     StockLevel,
     ModelInfo,
@@ -26,6 +26,7 @@ from app.services.file_processor import FileProcessor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
 
 async def run_main_py_analysis(image_path: str, products: List[str]) -> List[ProductStockInfo]:
     """
@@ -41,9 +42,16 @@ async def run_main_py_analysis(image_path: str, products: List[str]) -> List[Pro
         shutil.copy2(image_path, dataset_path)
         logger.info(f"Copied uploaded image to {dataset_path}")
         
-        # Create a modified main.py that outputs JSON results
-        main_py_path = os.path.join(project_root, "main.py")
-        modified_main_py = f"""
+        # Create analysis script based on your main.py
+        analysis_script = f"""
+import sys
+import os
+import json
+
+# Add the project root to the path
+sys.path.append(r"{project_root}")
+
+# Import modules (same as your main.py)
 from backend_model.imports import *
 from backend_model.detection_model import *
 from backend_model.segmentation_model import *
@@ -94,12 +102,13 @@ if __name__ == "__main__":
     # Output results as JSON
     print(json.dumps(results))
 """
-        
-        # Write the modified main.py
-        with open(main_py_path, "w") as f:
-            f.write(modified_main_py)
-        
-        # Run the actual main.py from project root
+
+        # Write the analysis script in the project root
+        script_path = os.path.join(project_root, "run_analysis.py")
+        with open(script_path, "w") as f:
+            f.write(analysis_script)
+
+        # Run the analysis script from project root
         logger.info(f"Running main.py analysis on {image_path}")
         logger.info(f"Project root: {project_root}")
         logger.info("This may take 2-5 minutes for AI model processing...")
@@ -126,19 +135,22 @@ if __name__ == "__main__":
             cwd=project_root,
             timeout=600  # 10 minute timeout for AI processing
         )
-        
+
         # Log the full output for debugging
-        logger.info(f"Main.py stdout: {result.stdout}")
-        logger.info(f"Main.py stderr: {result.stderr}")
-        
+        logger.info(f"Script stdout: {result.stdout}")
+        logger.info(f"Script stderr: {result.stderr}")
+
+        # Clean up the script file
+        if os.path.exists(script_path):
+            os.remove(script_path)
         if result.returncode != 0:
             logger.error(f"Main.py analysis failed: {result.stderr}")
             logger.info("Falling back to basic analysis...")
-            
+
             # Fallback to basic analysis
             return await ai_engine.estimate_stock_basic_cv(image_path, products, 0.7)
-        
-        # Parse the JSON output from main.py
+
+        # Parse the JSON output
         try:
             # Get the last line which should contain the JSON
             output_lines = result.stdout.strip().split('\n')
@@ -147,14 +159,13 @@ if __name__ == "__main__":
         except (json.JSONDecodeError, IndexError) as e:
             logger.error(f"Failed to parse main.py results: {result.stdout}")
             logger.error(f"JSON decode error: {e}")
-            raise Exception("Failed to parse main.py analysis results")
-        
+            raise Exception("Failed to parse AI analysis results")
         # Convert to ProductStockInfo format
         results = []
         for item in analysis_results:
             stock_percentage = item["stock_percentage"]
             confidence = item["confidence"]
-            
+
             # Determine stock level
             if stock_percentage < 0.3:
                 stock_status = StockLevel.LOW
@@ -162,7 +173,7 @@ if __name__ == "__main__":
                 stock_status = StockLevel.OVERSTOCKED
             else:
                 stock_status = StockLevel.NORMAL
-            
+
             results.append(ProductStockInfo(
                 product=item["product"],
                 stock_percentage=stock_percentage,
@@ -170,10 +181,10 @@ if __name__ == "__main__":
                 confidence=confidence,
                 reasoning=item["reasoning"]
             ))
-        
-        logger.info(f"Main.py analysis completed successfully for {len(results)} products")
+
+        logger.info(f"AI analysis completed successfully for {len(results)} products")
         return results
-        
+
     except Exception as e:
         logger.error(f"Error running main.py analysis: {e}")
         raise
@@ -182,42 +193,47 @@ if __name__ == "__main__":
 ai_engine = AIEngine()
 file_processor = FileProcessor()
 
+
 @router.post("/estimate-stock", response_model=StockEstimationResponse)
 async def estimate_stock(
     file: UploadFile = File(..., description="Image or video file to analyze"),
     model_type: str = Form(default="qwen-vl", description="AI model to use"),
-    products: Optional[str] = Form(default=None, description="Comma-separated list of products to analyze"),
-    confidence_threshold: float = Form(default=0.5, description="Minimum confidence threshold")
+    products: Optional[str] = Form(
+        default=None, description="Comma-separated list of products to analyze"),
+    confidence_threshold: float = Form(
+        default=0.5, description="Minimum confidence threshold")
 ):
     """
     Estimate stock levels from uploaded image or video.
     """
     start_time = time.time()
-    
+
     try:
         # Validate file
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
-        
+
         # Check file extension
         file_ext = os.path.splitext(file.filename)[1].lower()
         if file_ext not in settings.ALLOWED_EXTENSIONS:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"File type {file_ext} not supported. Allowed: {settings.ALLOWED_EXTENSIONS}"
             )
-        
+
         # Parse products list
         product_list = None
         if products:
             try:
-                product_list = [ProductType(p.strip()) for p in products.split(",")]
+                product_list = [ProductType(p.strip())
+                                for p in products.split(",")]
             except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid product type: {str(e)}")
-        
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid product type: {str(e)}")
+
         # Process file
         processed_data = await file_processor.process_upload(file)
-        
+
         # Run AI estimation
         results = await ai_engine.estimate_stock_levels(
             processed_data=processed_data,
@@ -225,9 +241,9 @@ async def estimate_stock(
             products=product_list,
             confidence_threshold=confidence_threshold
         )
-        
+
         processing_time = time.time() - start_time
-        
+
         return StockEstimationResponse(
             success=True,
             message="Stock estimation completed successfully",
@@ -236,13 +252,13 @@ async def estimate_stock(
             model_used=model_type,
             image_metadata=processed_data.get("metadata", {})
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Stock estimation failed: {str(e)}")
         processing_time = time.time() - start_time
-        
+
         return StockEstimationResponse(
             success=False,
             message=f"Stock estimation failed: {str(e)}",
@@ -250,6 +266,7 @@ async def estimate_stock(
             results=[],
             model_used=model_type
         )
+
 
 @router.get("/models", response_model=List[ModelInfo])
 async def get_available_models():
@@ -261,7 +278,9 @@ async def get_available_models():
         return models
     except Exception as e:
         logger.error(f"Failed to get available models: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to get available models: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get available models: {str(e)}")
+
 
 @router.get("/products", response_model=List[str])
 async def get_supported_products():
@@ -270,20 +289,25 @@ async def get_supported_products():
     """
     return [product.value for product in ProductType]
 
+
 @router.post("/estimate-stock-batch")
 async def estimate_stock_batch(
-    files: List[UploadFile] = File(..., description="Multiple image or video files to analyze"),
+    files: List[UploadFile] = File(...,
+                                   description="Multiple image or video files to analyze"),
     model_type: str = Form(default="qwen-vl", description="AI model to use"),
-    products: Optional[str] = Form(default=None, description="Comma-separated list of products to analyze"),
-    confidence_threshold: float = Form(default=0.5, description="Minimum confidence threshold")
+    products: Optional[str] = Form(
+        default=None, description="Comma-separated list of products to analyze"),
+    confidence_threshold: float = Form(
+        default=0.5, description="Minimum confidence threshold")
 ):
     """
     Estimate stock levels from multiple uploaded files (batch processing).
     """
     try:
         if len(files) > 10:  # Limit batch size
-            raise HTTPException(status_code=400, detail="Maximum 10 files allowed per batch")
-        
+            raise HTTPException(
+                status_code=400, detail="Maximum 10 files allowed per batch")
+
         results = []
         for file in files:
             try:
@@ -303,19 +327,20 @@ async def estimate_stock_batch(
                     "filename": file.filename,
                     "error": str(e)
                 })
-        
+
         return {
             "success": True,
             "message": f"Batch processing completed for {len(files)} files",
             "results": results,
             "timestamp": datetime.now()
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Batch estimation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Batch estimation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Batch estimation failed: {str(e)}")
 
 
 @router.post("/estimate-stock-integrated", response_model=StockEstimationResponse)
@@ -328,25 +353,25 @@ async def estimate_stock_integrated(
     Estimate stock levels using integrated AI models (detection + segmentation + depth estimation).
     """
     start_time = time.time()
-    
+
     try:
         # Validate file
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
-        
+
         # Process file
         file_path = await file_processor.save_uploaded_file(file)
         logger.info(f"Processing file: {file_path}")
-        
+
         # Parse products
         product_list = [p.strip().lower() for p in products.split(',')]
-        
+
         # Run main.py with the uploaded image to get real AI analysis
         logger.info("Running main.py with uploaded image...")
         results = await run_main_py_analysis(file_path, product_list)
-        
+
         processing_time = time.time() - start_time
-        
+
         return StockEstimationResponse(
             success=True,
             message="Stock estimation completed successfully using basic CV model",
@@ -359,9 +384,10 @@ async def estimate_stock_integrated(
                 "size": file.size if hasattr(file, 'size') else 0
             }
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Integrated estimation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Integrated estimation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Integrated estimation failed: {str(e)}")
