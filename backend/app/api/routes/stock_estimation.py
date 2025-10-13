@@ -42,6 +42,28 @@ async def run_main_py_analysis(image_path: str, products: List[str]) -> List[Pro
         shutil.copy2(image_path, dataset_path)
         logger.info(f"Copied uploaded image to {dataset_path}")
         
+        # Read the original main.py and modify it to use the uploaded image
+        main_py_path = os.path.join(project_root, "main.py")
+        
+        # Read the original main.py content
+        with open(main_py_path, "r") as f:
+            original_content = f.read()
+        
+        # Replace the hardcoded image path with the uploaded image
+        modified_content = original_content.replace(
+            'image = Image.open("dataset/onion.png")',
+            'image = Image.open("dataset/test_image.jpg")'
+        ).replace(
+            'image_path = "dataset/onion.png"',
+            'image_path = "dataset/test_image.jpg"'
+        )
+        
+        # Write the modified main.py
+        with open(main_py_path, "w") as f:
+            f.write(modified_content)
+        
+        logger.info("Modified main.py to use uploaded image")
+        
         # Create analysis script based on your main.py
         analysis_script = f"""
 import sys
@@ -140,6 +162,11 @@ if __name__ == "__main__":
         logger.info(f"Script stdout: {result.stdout}")
         logger.info(f"Script stderr: {result.stderr}")
 
+        # Restore the original main.py
+        with open(main_py_path, "w") as f:
+            f.write(original_content)
+        logger.info("Restored original main.py")
+        
         # Clean up the script file
         if os.path.exists(script_path):
             os.remove(script_path)
@@ -216,6 +243,13 @@ if __name__ == "__main__":
         return results
 
     except Exception as e:
+        # Restore the original main.py in case of error
+        try:
+            with open(main_py_path, "w") as f:
+                f.write(original_content)
+            logger.info("Restored original main.py after error")
+        except:
+            pass
         logger.error(f"Error running main.py analysis: {e}")
         raise
 

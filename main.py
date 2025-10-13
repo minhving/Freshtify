@@ -6,8 +6,8 @@ from backend_model.prob_calculation import *
 from backend_model.stock_estimation_depth import *
 import json
 
-image = Image.open("dataset/test_image.jpg")
-image_path = "dataset/test_image.jpg"
+image = Image.open("dataset/onion.png")
+image_path = "dataset/onion.png"
 class_names = 'potato section . onion . eggplant section . tomato . cucumber .'
 
 if __name__ == "__main__":
