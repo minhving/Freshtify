@@ -6,11 +6,8 @@ class DepthModel:
         self.model_id = model_type
         self.model_depth = None
         self.transform = None
+        self.result_root_seg = None
     def load(self):
-        load_dotenv()
-        hugging_face_token = os.getenv('HF_TOKEN')
-        login(token=hugging_face_token)
-
         self.model_depth = torch.hub.load("intel-isl/MiDaS", self.model_id)
         self.model_depth.eval().to(self.device)
         self.transforms = torch.hub.load("intel-isl/MiDaS", "transforms")
@@ -101,8 +98,130 @@ class DepthModel:
 
         return fullness_pct, layers
 
+
+    def _boxes_iou(self,b1, b2):
+        N, M = b1.size(0), b2.size(0)
+        b1 = b1[:, None, :]
+        b2 = b2[None, :, :] 
+        x1 = torch.max(b1[..., 0], b2[..., 0])
+        y1 = torch.max(b1[..., 1], b2[..., 1])
+        x2 = torch.min(b1[..., 2], b2[..., 2])
+        y2 = torch.min(b1[..., 3], b2[..., 3])
+        inter = (x2 - x1).clamp(min=0) * (y2 - y1).clamp(min=0)
+        a1 = (b1[..., 2]-b1[..., 0]).clamp(min=0) * (b1[..., 3]-b1[..., 1]).clamp(min=0)
+        a2 = (b2[..., 2]-b2[..., 0]).clamp(min=0) * (b2[..., 3]-b2[..., 1]).clamp(min=0)
+        union = a1 + a2 - inter + 1e-6
+        return inter / union
+
+    def _pairwise_center_dist(self, b1, b2):
+        c1 = torch.stack([(b1[:,0]+b1[:,2])/2, (b1[:,1]+b1[:,3])/2], dim=1)  # [N,2]
+        c2 = torch.stack([(b2[:,0]+b2[:,2])/2, (b2[:,1]+b2[:,3])/2], dim=1)  # [M,2]
+        return torch.cdist(c1, c2)  # [N,M]
+
+    def _scale_aware_thr(self, b1, base_px=0.15):
+        w = (b1[:,2]-b1[:,0]).clamp(min=1.0)
+        h = (b1[:,3]-b1[:,1]).clamp(min=1.0)
+        diag = torch.sqrt(w*w + h*h)
+        return base_px * diag  # [N]
+
+    def _binarize_and_morph(self, mask, thr=0.5, dilate_ks=0, close_ks=0):
+        out = (mask >= thr).float()
+        if dilate_ks and dilate_ks > 1:
+            k = dilate_ks if dilate_ks % 2 == 1 else dilate_ks+1
+            pad = k//2
+            out = F.max_pool2d(out.unsqueeze(0).unsqueeze(0), k, stride=1, padding=pad).squeeze()
+        if close_ks and close_ks > 1:
+            k = close_ks if close_ks % 2 == 1 else close_ks+1
+            pad = k//2
+            dil = F.max_pool2d(out.unsqueeze(0).unsqueeze(0), k, stride=1, padding=pad)
+            ero = -F.max_pool2d(-dil, k, stride=1, padding=pad)
+            out = ero.squeeze()
+        return out
+
+    def replace_masks_robust(self,
+        results, results_2,
+        iou_thr=0.1,
+        center_rel=0.15, 
+        src_thresh=0.5,  
+        merge_mode="union", 
+        dilate_ks=3,  
+        close_ks=0    
+    ):
+        r1, r2 = results[0], results_2[0]
+        boxes1 = r1.boxes.xyxy.float()
+        boxes2 = r2.boxes.xyxy.float()
+        if boxes1.numel() == 0 or boxes2.numel() == 0:
+            return results
+
+        masks1 = r1.masks.data 
+        masks2 = r2.masks.data
+        device = masks1.device
+        dtype  = masks1.dtype
+        boxes1, boxes2 = boxes1.to(device), boxes2.to(device)
+        masks2 = masks2.to(device)
+
+        if masks1.shape[-2:] != masks2.shape[-2:]:
+            masks2 = F.interpolate(
+                masks2.unsqueeze(1).float(), size=masks1.shape[-2:], mode="bilinear", align_corners=False
+            ).squeeze(1)
+        IoU = self._boxes_iou(boxes1, boxes2) 
+        best2_for_1 = IoU.argmax(dim=1)
+        best1_for_2 = IoU.argmax(dim=0)
+
+
+        mutual = torch.arange(boxes1.size(0), device=device)
+        is_mutual_best = (best1_for_2[best2_for_1] == mutual)
+        good_iou = IoU[mutual, best2_for_1] >= iou_thr
+        matched = is_mutual_best & good_iou
+        if (~matched).any():
+            d = self._pairwise_center_dist(boxes1, boxes2)
+            idx2 = d.argmin(dim=1) 
+            per_box_thr = self._scale_aware_thr(boxes1, center_rel)
+            ok_center = d[torch.arange(d.size(0), device=device), idx2] <= per_box_thr
+            use_center = (~matched) & ok_center
+            final_idx2 = best2_for_1.clone()
+            final_idx2[use_center] = idx2[use_center]
+            matched = matched | use_center
+        else:
+            final_idx2 = best2_for_1
+
+        if not matched.any():
+            return results 
+
+        new_masks = masks1.clone()
+
+        inds = torch.nonzero(matched, as_tuple=False).flatten()
+        src_sel = masks2[final_idx2[inds]].float()
+        src_sel = torch.stack([self._binarize_and_morph(m, thr=src_thresh, dilate_ks=dilate_ks, close_ks=close_ks) for m in src_sel], dim=0)
+        src_sel = src_sel.to(dtype)
+
+        if merge_mode == "overwrite":
+            new_masks[inds] = src_sel
+        else: 
+            new_masks[inds] = torch.maximum(new_masks[inds].to(dtype), src_sel)
+
+        r1.masks.data = new_masks.detach().clone()
+        return results
     def compute_stock(self, results_seg,img_path):
-        items = self.extract_masks(results_seg)
+        if self.result_root_seg is None:
+            self.result_root_seg = results_seg
+
+        else:
+            mask = torch.zeros(self.result_root_seg[0].masks.data.shape, dtype=torch.bool)
+            self.result_root_seg[0].masks.data = mask
+
+            self.result_root_seg = self.replace_masks_robust(
+                self.result_root_seg, results_seg,
+                iou_thr=0.15,   
+                center_rel=0.20,     
+                src_thresh=0.4,     
+                merge_mode="union", 
+                dilate_ks=3,        
+                close_ks=3
+            )
+            self.result_root_seg[0].show()
+
+        items = self.extract_masks(self.result_root_seg)
         depth_map = self.get_depth(img_path)
         stock_dict = {}
 
@@ -115,7 +234,7 @@ class DepthModel:
                 val = (float(fullness), int(layers))
 
             stock_dict.setdefault(cls, []).append(val)
-
+        self.visualize_stock(img_path, self.result_root_seg, stock_dict, save_path=f"{img_path}_depth_estimation_overlay.jpg")
         return stock_dict
 
     def visualize_stock(self,img_path, results_seg, stock_dict, save_path="stock_overlay.jpg"):
@@ -162,14 +281,7 @@ class DepthModel:
     def print_result(self,stock_dict):
         print("\nStock estimation results (depth-based):")
         for cls, values in stock_dict.items():
+            index = 1
             for fullness, layers in values:
-                print(f"{cls}: {fullness:.1f}% ")
-
-    def cal_probs(self , stock_dict):
-        prob_dic = {}
-        for cls, values in stock_dict.items():
-            total = 0
-            for fullness, layers in values:
-                total += fullness
-            prob_dic[cls] = total / len(values)
-        return prob_dic
+                print(f"{cls} - section {index}: {fullness:.1f}% ")
+                index += 1

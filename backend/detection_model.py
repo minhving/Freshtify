@@ -18,7 +18,7 @@ class DetectionModel:
         self.model_dec = AutoModelForZeroShotObjectDetection.from_pretrained(self.model_id).to(self.device)
         print("Loaded model sucessfully")
 
-    def show_gd_results(self ,img, results, score_thr = 0.2):
+    def show_gd_results(self ,img, results, score_thr = 0):
         if isinstance(img, str):
             img = Image.open(img).convert("RGB")
         elif isinstance(img, torch.Tensor):
