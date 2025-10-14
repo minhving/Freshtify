@@ -1,5 +1,16 @@
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Link } from "react-router";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
 import {
   Bar,
   BarChart,
@@ -82,6 +93,8 @@ function Dashboard() {
     medium: 12,
     high: 33,
   });
+  const [lowItems, setLowItems] = useState<AnalysisResult[]>([]);
+  const [showLowAlert, setShowLowAlert] = useState<boolean>(false);
 
   useEffect(() => {
     // Get the latest analysis data from localStorage
@@ -94,6 +107,15 @@ function Dashboard() {
 
         // Convert API response to dashboard format
         if (data.results && data.results.length > 0) {
+          // Compute low stock items for inline alert
+          const lows = data.results.filter((r: AnalysisResult) =>
+            r.stock_status
+              ? r.stock_status === "low"
+              : (r.stock_percentage ?? 1) < 0.3
+          );
+          setLowItems(lows);
+          setShowLowAlert(lows.length > 0);
+
           const realProducts = data.results.map(
             (result: AnalysisResult, index: number) => ({
               id: index + 1,
@@ -197,6 +219,52 @@ function Dashboard() {
             ? new Date(analysisData.timestamp).toLocaleString()
             : "Today, 2:45PM"}
         </p>
+        <AlertDialog
+          open={showLowAlert && lowItems.length > 0}
+          onOpenChange={setShowLowAlert}
+        >
+          <AlertDialogContent className="">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-lowStock-text">
+                <AlertTriangle className="w-5 h-5 text-lowStock-text" />
+                Low stock detected
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {lowItems.length === 1
+                  ? `${lowItems[0].product.charAt(0).toUpperCase()}${lowItems[0].product.slice(1)} is low on stock.`
+                  : `${lowItems
+                      .map(
+                        (i) =>
+                          i.product.charAt(0).toUpperCase() + i.product.slice(1)
+                      )
+                      .slice(0, 3)
+                      .join(
+                        ", "
+                      )}${lowItems.length > 3 ? ` and ${lowItems.length - 3} more` : ""} are low on stock.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <ul className="mt-2 space-y-1 text-sm">
+              {lowItems.map((i, idx) => (
+                <li key={idx} className="flex justify-between">
+                  <span className="text-lowStock-text">
+                    {i.product.charAt(0).toUpperCase() + i.product.slice(1)}
+                  </span>
+                  <span className="text-lowStock-text">
+                    {Math.round(i.stock_percentage * 100)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowLowAlert(false)}>
+                Dismiss
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <Link to="/alert">View details</Link>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {/* Grid for total products, low stock, medium stock, high stock */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-5">
           {/* Total Products */}

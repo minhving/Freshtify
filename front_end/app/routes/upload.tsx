@@ -1,16 +1,19 @@
 import { Upload as UploadIcon, X, Image as ImageIcon } from "lucide-react";
-import Button from "../components/ui/Button";
+import Button from "../components/ui/buttonCustom";
 import { useState, useRef } from "react";
+import Dropzone from "../components/ui/Dropzone";
 import { useNavigate } from "react-router";
 import axios from "axios";
 import AnalyzingOverlay from "~/components/ui/AnalyzingOverlay";
 import { API_ENDPOINTS, API_CONFIG } from "../lib/api";
+import sample1 from "../assets/sampleImages/sample1.jpg";
+import sample2 from "../assets/sampleImages/sample2.jpg";
+import sample3 from "../assets/sampleImages/sample3.jpg";
 
 export default function Upload() {
   const navigate = useNavigate();
 
   const [isloading, setIsLoading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [progress, setProgress] = useState(0); // tracking progress percentage
@@ -22,49 +25,30 @@ export default function Upload() {
   const sampleImages = [
     {
       id: 1,
-      src: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&h=200&fit=crop&crop=center",
-      alt: "Broccoli on supermarket shelf",
-      title: "Broccoli Shelf",
+      src: sample1,
+      alt: "Sample camera image 1",
+      title: "Sample 1",
     },
     {
       id: 2,
-      src: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300&h=200&fit=crop&crop=center",
-      alt: "Bananas on supermarket shelf",
-      title: "Banana Display",
+      src: sample2,
+      alt: "Sample camera image 2",
+      title: "Sample 2",
     },
     {
       id: 3,
-      src: "https://images.unsplash.com/photo-1567306301408-9b74779a11af?w=300&h=200&fit=crop&crop=center",
-      alt: "Tomatoes on supermarket shelf",
-      title: "Tomato Section",
+      src: sample3,
+      alt: "Sample camera image 3",
+      title: "Sample 3",
     },
   ];
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    // Append dropped files to existing files instead of replacing
+  const handleIncomingFiles = (incoming: File[]) => {
     setFiles((prevFiles) => {
-      const newFiles = [...prevFiles, ...droppedFiles];
-      // Create preview URLs for all files (old + new)
+      const newFiles = [...prevFiles, ...incoming];
       createPreviewUrls(newFiles);
       return newFiles;
     });
-  };
-
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,12 +72,7 @@ export default function Upload() {
     setPreviewUrls(urls);
   };
 
-  const handleBrowseClick = () => {
-    // Trigger the hidden file input when browse button is clicked
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
+  const handleBrowseClick = () => fileInputRef.current?.click();
 
   const removeFile = (index: number) => {
     const newFiles = files.filter((_, i) => i !== index);
@@ -120,10 +99,10 @@ export default function Upload() {
         formData.append("confidence_threshold", "0.7");
 
         console.log("Uploading to integrated AI endpoint...");
-        
+
         // Simulate progress updates
         const progressInterval = setInterval(() => {
-          setProgress(prev => Math.min(prev + 10, 90));
+          setProgress((prev) => Math.min(prev + 10, 90));
         }, 2000);
 
         const response = await axios.post(
@@ -134,22 +113,24 @@ export default function Upload() {
             timeout: API_CONFIG.TIMEOUT,
           }
         );
-        
+
         clearInterval(progressInterval);
         setProgress(100);
-        
+
         console.log("AI Analysis Response:", response.data);
-        
+
         // Store the analysis results in localStorage for the dashboard
-        localStorage.setItem('latestAnalysis', JSON.stringify(response.data));
-        
+        localStorage.setItem("latestAnalysis", JSON.stringify(response.data));
+
         // Navigate to dashboard
         navigate("/dashboard");
       } catch (error: any) {
         console.error("Upload failed:", error);
-        
-        if (error.code === 'ECONNABORTED') {
-          setError("AI analysis is taking longer than expected. Please try again with a smaller image or wait a bit longer.");
+
+        if (error.code === "ECONNABORTED") {
+          setError(
+            "AI analysis is taking longer than expected. Please try again with a smaller image or wait a bit longer."
+          );
         } else if (error.response?.status === 500) {
           setError("Server error during analysis. Please try again.");
         } else {
@@ -180,34 +161,33 @@ export default function Upload() {
         {/* Main Upload Card */}
         <div className="bg-gray-800 rounded-3xl p-8 shadow-2xl">
           {/* Upload Area */}
-          <div
-            className={`border-4 border-dashed border-gray-400 rounded-2xl p-12 text-center transition-all duration-300 ${
-              isDragging
-                ? "border-blue-400 bg-blue-50/10"
-                : "hover:border-gray-300 hover:bg-gray-700/50"
-            }`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
+          <Dropzone
+            onFiles={handleIncomingFiles}
+            accept="image/*,.jpg,.jpeg,.png"
+            multiple
+            className="border-4 border-dashed border-gray-400 rounded-2xl p-12 text-center transition-all duration-300 hover:border-gray-300 hover:bg-gray-700/50"
           >
-            <UploadIcon className="w-16 h-16 mx-auto mb-6 text-gray-400" />
-            <h2 className="text-2xl font-semibold text-white mb-4">
-              {isDragging
-                ? "Drop files here"
-                : "Drag and drop image/video here"}
-            </h2>
-            <p className="text-gray-400 mb-6">or</p>
-            <Button
-              onClick={handleBrowseClick}
-              variant="secondary"
-              size="large"
-            >
-              Browse files
-            </Button>
-          </div>
+            {({ isDragging, openFileDialog }) => (
+              <div>
+                <UploadIcon className="w-16 h-16 mx-auto mb-6 text-gray-400" />
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  {isDragging
+                    ? "Drop files here"
+                    : "Drag and drop image/video here"}
+                </h2>
+                <p className="text-gray-400 mb-6">or</p>
+                <Button
+                  onClick={openFileDialog}
+                  variant="secondary"
+                  size="large"
+                >
+                  Browse files
+                </Button>
+              </div>
+            )}
+          </Dropzone>
 
-          {/* Hidden file input */}
+          {/* Hidden file input for external browse triggers (optional) */}
           <input
             ref={fileInputRef}
             type="file"
