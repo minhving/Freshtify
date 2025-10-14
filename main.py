@@ -13,26 +13,16 @@ if __name__ == "__main__":
     for name in image_arr:
         image_path = f"../Freshtify/dataset/{name}.jpg"
         image = Image.open(image_path)
+
+        #detection
         xyxy, labels, scores = detection_model.detect(image, class_names)
+
+        #segmentation
         results_seg = segmentation_model.segment(image_path, xyxy, labels)
+
+        #depth and compute stock
         stock_dict = depth_model.compute_stock(results_seg,image_path)
         print(stock_dict)
         print(f"Image: {name}")
         print(f"Length stock dict {len(stock_dict)}\n")
         depth_model.print_result(stock_dict)
-    # # Detection
-    # xyxy, labels, scores = detection_model.detect(image, class_names)
-
-    # #Segmentation
-    # results_seg = segmentation_model.segment(image_path, xyxy, labels)
-
-    # # Compute fullness (depth-based)
-    # stock_dict = depth_model.compute_stock(results_seg,image_path)
-
-    # # Visualize
-    # # depth_model.visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
-
-    # # #Calculate probs
-    # # probs = depth_model.cal_probs(stock_dict)
-    # # print(probs)
-    # print(stock_dict)
