@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
   ESTIMATE_STOCK: `${API_BASE_URL}/api/v1/estimate-stock`,
   ESTIMATE_STOCK_BATCH: `${API_BASE_URL}/api/v1/estimate-stock-batch`,
   ESTIMATE_STOCK_INTEGRATED: `${API_BASE_URL}/api/v1/estimate-stock-integrated`,
+  ESTIMATE_STOCK_MULTIPLE: `${API_BASE_URL}/api/v1/estimate-stock-multiple`,
 } as const;
 
 export const API_CONFIG = {

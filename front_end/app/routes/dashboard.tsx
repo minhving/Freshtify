@@ -85,6 +85,7 @@ const chartcolors = [
 ];
 
 function Dashboard() {
+  console.log("🔍 DEBUG: Dashboard component is rendering");
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [products, setProducts] = useState(mockProducts);
   const [summaryStats, setSummaryStats] = useState({
@@ -97,12 +98,14 @@ function Dashboard() {
   const [showLowAlert, setShowLowAlert] = useState<boolean>(false);
 
   useEffect(() => {
+    console.log("🔍 DEBUG: Dashboard useEffect triggered");
     // Get the latest analysis data from localStorage
     const latestAnalysis = localStorage.getItem("latestAnalysis");
+    console.log("🔍 DEBUG: latestAnalysis from localStorage:", latestAnalysis);
     if (latestAnalysis) {
       try {
         const data = JSON.parse(latestAnalysis);
-        console.log("Dashboard received analysis data:", data);
+        console.log("🔍 DEBUG: Dashboard received analysis data:", data);
         setAnalysisData(data);
 
         // Convert API response to dashboard format
@@ -144,6 +147,24 @@ function Dashboard() {
 
           setProducts(realProducts);
 
+          // Store historical data for line chart
+          const historicalData = JSON.parse(localStorage.getItem("historicalData") || "[]");
+          const newEntry = {
+            timestamp: new Date().toISOString(),
+            results: data.results,
+            imageCount: data.image_metadata?.image_count || 1
+          };
+          console.log("🔍 DEBUG: Storing new entry:", newEntry);
+          historicalData.push(newEntry);
+          
+          // Keep only last 10 analyses to prevent localStorage from getting too large
+          if (historicalData.length > 10) {
+            historicalData.splice(0, historicalData.length - 10);
+          }
+          
+          localStorage.setItem("historicalData", JSON.stringify(historicalData));
+          console.log("🔍 DEBUG: Updated historicalData:", historicalData);
+
           // Calculate summary stats
           const lowCount = realProducts.filter(
             (p: any) => p.status === "Low"
@@ -184,29 +205,89 @@ function Dashboard() {
     stock: parseInt(product.stock.replace("%", "")),
   }));
 
-  // Create dynamic line chart data based on current products
+  // Create line chart data from historical data - each image as separate data point
   const createLineChartData = () => {
-    if (products.length === 0) return []; // Return empty array if no products
+    const historicalData = JSON.parse(localStorage.getItem("historicalData") || "[]");
+    console.log("🔍 DEBUG: Retrieved historicalData:", historicalData);
+    
+    if (historicalData.length === 0) {
+      // If no historical data, create a single data point from current products
+      if (products.length === 0) return [];
+      
+      const productNames = products.map((p) => p.product);
+      const currentTime = new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
-    const productNames = products.map((p) => p.product);
-    const currentTime = new Date().toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
+      const currentData: any = { time: currentTime };
+      productNames.forEach((name) => {
+        const product = products.find((p) => p.product === name);
+        if (product) {
+          currentData[name] = parseInt(product.stock.replace("%", ""));
+        }
+      });
+
+      return [currentData];
+    }
+
+    // Process historical data to create line chart data - each individual image result
+    const lineData: any[] = [];
+    let globalDataPointIndex = 0;
+    
+    historicalData.forEach((entry: any, analysisIndex: number) => {
+      console.log(`🔍 DEBUG: Processing entry ${analysisIndex}:`, entry);
+      const baseTime = new Date(entry.timestamp);
+      
+      // Group results by image (T0, T1, T2, etc.)
+      const imageGroups: { [key: string]: any[] } = {};
+      
+      entry.results.forEach((result: any) => {
+        // Extract image identifier (T0, T1, T2, etc.)
+        const imageMatch = result.product.match(/\(([^)]+)\)$/);
+        const imageId = imageMatch ? imageMatch[1] : 'T0';
+        console.log(`🔍 DEBUG: Product "${result.product}" -> ImageId "${imageId}"`);
+        
+        if (!imageGroups[imageId]) {
+          imageGroups[imageId] = [];
+        }
+        imageGroups[imageId].push(result);
+      });
+      
+      console.log(`🔍 DEBUG: Image groups for entry ${analysisIndex}:`, imageGroups);
+      
+      // Create a data point for each individual image
+      Object.keys(imageGroups).forEach((imageId, imageIndex) => {
+        const time = new Date(baseTime.getTime() + (imageIndex * 60000)).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        
+        const dataPoint: any = { 
+          time: time,
+          imageId: imageId,
+          analysisIndex: globalDataPointIndex + 1  // Each image gets its own unique index
+        };
+        
+        // Add stock levels for each product in this image
+        imageGroups[imageId].forEach((result: any) => {
+          const baseProduct = result.product.replace(/\s*\([^)]*\)$/, '');
+          dataPoint[baseProduct] = Math.round(result.stock_percentage * 100);
+        });
+        
+        lineData.push(dataPoint);
+        globalDataPointIndex++;
+        console.log(`🔍 DEBUG: Created data point for ${imageId}:`, dataPoint);
+      });
     });
 
-    // Create a data point with current stock levels
-    const currentData: any = { time: currentTime };
-    productNames.forEach((name) => {
-      const product = products.find((p) => p.product === name);
-      if (product) {
-        currentData[name] = parseInt(product.stock.replace("%", ""));
-      }
-    });
-
-    return [currentData];
+    console.log("🔍 DEBUG: Final line chart data:", lineData);
+    return lineData;
   };
 
+  console.log("🔍 DEBUG: About to call createLineChartData");
   const dynamicLineChartData = createLineChartData();
+  console.log("🔍 DEBUG: dynamicLineChartData result:", dynamicLineChartData);
 
   return (
     <body className="">
@@ -375,7 +456,11 @@ function Dashboard() {
                           type="monotone"
                           stroke={chartcolors[i % chartcolors.length]}
                           strokeWidth={2}
-                          dot={true}
+                          dot={{
+                            fill: chartcolors[i % chartcolors.length],
+                            strokeWidth: 2,
+                            r: 4,
+                          }}
                         />
                       );
                     })}
@@ -522,7 +607,7 @@ export default Dashboard;
 export const mockProducts = [
   {
     id: 1,
-    product: "Banana",
+    product: "Potato Section",
     stock: "80%",
     status: "High",
     confidence: "92%",
@@ -530,7 +615,7 @@ export const mockProducts = [
   },
   {
     id: 2,
-    product: "Broccoli",
+    product: "Onion",
     stock: "20%",
     status: "Low",
     confidence: "88%",
@@ -538,7 +623,7 @@ export const mockProducts = [
   },
   {
     id: 3,
-    product: "Avocado",
+    product: "Eggplant Section",
     stock: "60%",
     status: "Medium",
     confidence: "85%",
@@ -554,26 +639,10 @@ export const mockProducts = [
   },
   {
     id: 5,
-    product: "Onion",
+    product: "Cucumber",
     stock: "45%",
     status: "Medium",
     confidence: "90%",
     updatedAt: "Today, 2:35 PM",
-  },
-  {
-    id: 6,
-    product: "Apple",
-    stock: "10%",
-    status: "Low",
-    confidence: "87%",
-    updatedAt: "Today, 2:30 PM",
-  },
-  {
-    id: 7,
-    product: "Carrot",
-    stock: "85%",
-    status: "High",
-    confidence: "91%",
-    updatedAt: "Today, 2:25 PM",
   },
 ];

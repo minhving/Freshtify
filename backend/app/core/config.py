@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     
     # Supported Products
     SUPPORTED_PRODUCTS: List[str] = [
-        "banana", "broccoli", "avocado", "tomato", "onion"
+        "potato section", "onion", "eggplant section", "tomato", "cucumber"
     ]
     
     # API Keys (for commercial models)
