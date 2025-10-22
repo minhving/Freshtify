@@ -219,12 +219,12 @@ class DepthModel:
                 dilate_ks=3,        
                 close_ks=3
             )
-            self.result_root_seg[0].show()
+            # self.result_root_seg[0].show()
 
         items = self.extract_masks(self.result_root_seg)
         depth_map = self.get_depth(img_path)
         stock_dict = {}
-
+        pos_dic = {}
         for cls, box, mask in items:
             has_stock, d_obj, d_bg = self.check_has_stock(mask, depth_map, box)
             if not has_stock:
@@ -232,10 +232,10 @@ class DepthModel:
             else:
                 fullness, layers = self.estimate_fullness(mask, depth_map, box)
                 val = (float(fullness), int(layers))
-
+            pos_dic.setdefault(cls, []).append(box)
             stock_dict.setdefault(cls, []).append(val)
-        self.visualize_stock(img_path, self.result_root_seg, stock_dict, save_path=f"{img_path}_depth_estimation_overlay.jpg")
-        return stock_dict
+        # self.visualize_stock(img_path, self.result_root_seg, stock_dict, save_path=f"{img_path}_depth_estimation_overlay.jpg")
+        return stock_dict, pos_dic
 
     def visualize_stock(self,img_path, results_seg, stock_dict, save_path="stock_overlay.jpg"):
         img = cv2.imread(img_path)

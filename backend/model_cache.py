@@ -1,7 +1,7 @@
 
 from backend.detection_model import *
 from backend.segmentation_model import *
-#from backend.gemini_model import *
+from backend.gemini_model import *
 from backend.prob_calculation import *
 from backend.stock_estimation_depth import *
 
@@ -17,6 +17,9 @@ def get_model(name):
             model.load()
         elif name == "depth":
             model = DepthModel()
+            model.load()
+        elif name == 'gemini':
+            model = Gemini()
             model.load()
         else:
             raise ValueError(f"Unknown model: {name}")
