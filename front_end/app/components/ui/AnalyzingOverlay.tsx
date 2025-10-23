@@ -31,7 +31,7 @@ export default function AnalyzingOverlay({
           {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
             <div
-              className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${Math.min(progress, 100)}%` }}
             ></div>
           </div>

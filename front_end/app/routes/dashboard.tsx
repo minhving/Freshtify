@@ -1,5 +1,10 @@
-import { TrendingUp, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
+import {
+  TrendingUp,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import {
   AlertDialog,
@@ -84,23 +89,65 @@ const chartcolors = [
   "var(--chart-6)",
 ];
 
+// Normalize a label into a base product key (strip time and index)
+const getBaseProduct = (label: string): string => {
+  let s = (label || "").toLowerCase();
+  // remove trailing time e.g. (T0)
+  s = s.replace(/\s*\([^)]*\)$/, "");
+  // remove trailing section index e.g. " 12"
+  s = s.replace(/\s+\d+$/, "");
+  return s.trim();
+};
+
+// Deterministic color generator for any (unknown) product
+const colorCache = new Map<string, string>();
+const colorForBase = (base: string): string => {
+  const key = base || "unknown";
+  const cached = colorCache.get(key);
+  if (cached) return cached;
+  // djb2 hash
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++)
+    hash = (hash << 5) + hash + key.charCodeAt(i);
+  // Map to hue wheel and pleasant saturation/lightness
+  const hue = (hash >>> 0) % 360;
+  const color = `hsl(${hue}, 65%, 50%)`;
+  colorCache.set(key, color);
+  return color;
+};
+
 function Dashboard() {
   console.log("🔍 DEBUG: Dashboard component is rendering");
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const [products, setProducts] = useState(mockProducts);
+  const [groupedResults, setGroupedResults] = useState<Record<
+    string,
+    AnalysisResult[]
+  > | null>(null);
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
   const [summaryStats, setSummaryStats] = useState({
-    total: 48,
-    low: 5,
-    medium: 12,
-    high: 33,
+    total: 0,
+    low: 0,
+    medium: 0,
+    high: 0,
   });
   const [lowItems, setLowItems] = useState<AnalysisResult[]>([]);
   const [showLowAlert, setShowLowAlert] = useState<boolean>(false);
-
+  const [lineData, setLineData] = useState<any[]>([]);
+  const [availableSections, setAvailableSections] = useState<string[]>([]);
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const sectionScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollSectionBy = (delta: number) => {
+    try {
+      sectionScrollRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+    } catch {}
+  };
   useEffect(() => {
     console.log("🔍 DEBUG: Dashboard useEffect triggered");
     // Get the latest analysis data from localStorage
     const latestAnalysis = localStorage.getItem("latestAnalysis");
+
     console.log("🔍 DEBUG: latestAnalysis from localStorage:", latestAnalysis);
     if (latestAnalysis) {
       try {
@@ -108,7 +155,138 @@ function Dashboard() {
         console.log("🔍 DEBUG: Dashboard received analysis data:", data);
         setAnalysisData(data);
 
-        // Convert API response to dashboard format
+        // Handle grouped results (T0, T1, ...) without averaging
+        if (
+          data.results &&
+          !Array.isArray(data.results) &&
+          typeof data.results === "object"
+        ) {
+          const grouped = data.results as Record<string, AnalysisResult[]>;
+          setGroupedResults(grouped);
+          const times = Object.keys(grouped);
+          const sortedTimes = [...times].sort((a, b) => {
+            const na = parseInt(String(a).replace(/\D/g, "")) || 0;
+            const nb = parseInt(String(b).replace(/\D/g, "")) || 0;
+            return na - nb;
+          });
+          setAvailableTimes(sortedTimes);
+          const saved =
+            typeof window !== "undefined"
+              ? localStorage.getItem("selectedTimeKey")
+              : null;
+          const initialTime =
+            saved && grouped[saved] ? saved : sortedTimes[0] || null;
+          setSelectedTime(initialTime);
+
+          const selectedArray = initialTime ? grouped[initialTime] || [] : [];
+          const realProducts = selectedArray.map(
+            (result: AnalysisResult, index: number) => ({
+              id: index + 1,
+              product:
+                result.product.charAt(0).toUpperCase() +
+                result.product.slice(1),
+              stock: `${Math.round((result.stock_percentage ?? 0) * 100)}%`,
+              status:
+                result.stock_status === "low"
+                  ? "Low"
+                  : result.stock_status === "normal"
+                    ? "Medium"
+                    : result.stock_status === "overstocked"
+                      ? "High"
+                      : "Medium",
+              confidence: `${Math.round((result.confidence ?? 0) * 100)}%`,
+              reasoning: result.reasoning || "AI analysis completed",
+              updatedAt: new Date().toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            })
+          );
+          setProducts(realProducts);
+
+          // Build section list across all times
+          const sectionSet = new Set<string>();
+          Object.values(grouped).forEach((arr: any) => {
+            (arr || []).forEach((item: any) => {
+              const base = String(item.product || "").replace(
+                /\s*\([^)]*\)$/,
+                ""
+              );
+              if (base) sectionSet.add(base);
+            });
+          });
+          const sections = Array.from(sectionSet).sort((a, b) =>
+            a.localeCompare(b, undefined, {
+              numeric: true,
+              sensitivity: "base",
+            })
+          );
+          setAvailableSections(sections);
+          const savedSection =
+            typeof window !== "undefined"
+              ? localStorage.getItem("selectedSectionKey")
+              : null;
+          const initialSection =
+            savedSection && sections.includes(savedSection)
+              ? savedSection
+              : sections[0] || null;
+          setSelectedSection(initialSection);
+
+          // Update low items alert for the initially selected time
+          const lowsInitial = selectedArray.filter((r: AnalysisResult) =>
+            r.stock_status
+              ? r.stock_status === "low"
+              : (r.stock_percentage ?? 1) < 0.3
+          );
+          setLowItems(lowsInitial);
+          setShowLowAlert(lowsInitial.length > 0);
+
+          const lowCount = realProducts.filter(
+            (p: any) => p.status === "Low"
+          ).length;
+          const mediumCount = realProducts.filter(
+            (p: any) => p.status === "Medium"
+          ).length;
+          const highCount = realProducts.filter(
+            (p: any) => p.status === "High"
+          ).length;
+          setSummaryStats({
+            total: realProducts.length,
+            low: lowCount,
+            medium: mediumCount,
+            high: highCount,
+          });
+
+          // Store historical entry (optional)
+          const historicalData = JSON.parse(
+            localStorage.getItem("historicalData") || "[]"
+          );
+          const newEntry = {
+            timestamp: new Date().toISOString(),
+            groupedResults: grouped,
+          };
+          historicalData.push(newEntry);
+          if (historicalData.length > 10)
+            historicalData.splice(0, historicalData.length - 10);
+          localStorage.setItem(
+            "historicalData",
+            JSON.stringify(historicalData)
+          );
+
+          if (data.model_used) {
+            setAnalysisData((prev: any) => ({
+              ...prev,
+              modelUsed: data.model_used,
+              processingTime: data.processing_time,
+              timestamp: data.timestamp,
+            }));
+          }
+          return; // prevent falling through to array-based logic
+        }
+
+        // Convert API response to dashboard format (array results)
         if (data.results && data.results.length > 0) {
           // Compute low stock items for inline alert
           const lows = data.results.filter((r: AnalysisResult) =>
@@ -148,21 +326,26 @@ function Dashboard() {
           setProducts(realProducts);
 
           // Store historical data for line chart
-          const historicalData = JSON.parse(localStorage.getItem("historicalData") || "[]");
+          const historicalData = JSON.parse(
+            localStorage.getItem("historicalData") || "[]"
+          );
           const newEntry = {
             timestamp: new Date().toISOString(),
             results: data.results,
-            imageCount: data.image_metadata?.image_count || 1
+            imageCount: data.image_metadata?.image_count || 1,
           };
           console.log("🔍 DEBUG: Storing new entry:", newEntry);
           historicalData.push(newEntry);
-          
+
           // Keep only last 10 analyses to prevent localStorage from getting too large
           if (historicalData.length > 10) {
             historicalData.splice(0, historicalData.length - 10);
           }
-          
-          localStorage.setItem("historicalData", JSON.stringify(historicalData));
+
+          localStorage.setItem(
+            "historicalData",
+            JSON.stringify(historicalData)
+          );
           console.log("🔍 DEBUG: Updated historicalData:", historicalData);
 
           // Calculate summary stats
@@ -199,6 +382,100 @@ function Dashboard() {
     }
   }, []);
 
+  // Persist selected time
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedTime) localStorage.setItem("selectedTimeKey", selectedTime);
+  }, [selectedTime]);
+
+  // When user toggles a different time, recompute products from groupedResults
+  useEffect(() => {
+    if (!groupedResults || !selectedTime) return;
+    const selectedArray = groupedResults[selectedTime] || [];
+    const realProducts = selectedArray.map(
+      (result: AnalysisResult, index: number) => ({
+        id: index + 1,
+        product:
+          result.product.charAt(0).toUpperCase() + result.product.slice(1),
+        stock: `${Math.round((result.stock_percentage ?? 0) * 100)}%`,
+        status:
+          result.stock_status === "low"
+            ? "Low"
+            : result.stock_status === "normal"
+              ? "Medium"
+              : result.stock_status === "overstocked"
+                ? "High"
+                : "Medium",
+        confidence: `${Math.round((result.confidence ?? 0) * 100)}%`,
+        reasoning: result.reasoning || "AI analysis completed",
+        updatedAt: new Date().toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      })
+    );
+    setProducts(realProducts);
+
+    // Update low items alert for current time selection
+    const lows = selectedArray.filter((r: AnalysisResult) =>
+      r.stock_status
+        ? r.stock_status === "low"
+        : (r.stock_percentage ?? 1) < 0.3
+    );
+    setLowItems(lows);
+    setShowLowAlert(lows.length > 0);
+
+    const lowCount = realProducts.filter((p: any) => p.status === "Low").length;
+    const mediumCount = realProducts.filter(
+      (p: any) => p.status === "Medium"
+    ).length;
+    const highCount = realProducts.filter(
+      (p: any) => p.status === "High"
+    ).length;
+    setSummaryStats({
+      total: realProducts.length,
+      low: lowCount,
+      medium: mediumCount,
+      high: highCount,
+    });
+  }, [groupedResults, selectedTime]);
+
+  // Recompute available sections based on the currently selected time only
+  useEffect(() => {
+    if (!groupedResults || !selectedTime) {
+      setAvailableSections([]);
+      setSelectedSection(null);
+      return;
+    }
+    const arr = groupedResults[selectedTime] || [];
+    const sectionSet = new Set<string>();
+    (arr || []).forEach((item: any) => {
+      const base = String(item.product || "").replace(/\s*\([^)]*\)$/, "");
+      if (base) sectionSet.add(base);
+    });
+    const sections = Array.from(sectionSet).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+    );
+    setAvailableSections(sections);
+    if (!sections.includes(selectedSection || "")) {
+      setSelectedSection(sections[0] || null);
+    }
+  }, [groupedResults, selectedTime]);
+
+  // Persist selected time and section
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedTime) localStorage.setItem("selectedTimeKey", selectedTime);
+  }, [selectedTime]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedSection)
+      localStorage.setItem("selectedSectionKey", selectedSection);
+  }, [selectedSection]);
+
   // Create chart data from real products
   const BarChartData = products.map((product) => ({
     name: product.product,
@@ -207,13 +484,19 @@ function Dashboard() {
 
   // Create line chart data from historical data - each image as separate data point
   const createLineChartData = () => {
-    const historicalData = JSON.parse(localStorage.getItem("historicalData") || "[]");
+    // Guard against SSR where window/localStorage are not available
+    if (typeof window === "undefined" || typeof localStorage === "undefined") {
+      return [] as any[];
+    }
+    const historicalData = JSON.parse(
+      localStorage.getItem("historicalData") || "[]"
+    );
     console.log("🔍 DEBUG: Retrieved historicalData:", historicalData);
-    
+
     if (historicalData.length === 0) {
       // If no historical data, create a single data point from current products
       if (products.length === 0) return [];
-      
+
       const productNames = products.map((p) => p.product);
       const currentTime = new Date().toLocaleTimeString("en-US", {
         hour: "2-digit",
@@ -234,47 +517,68 @@ function Dashboard() {
     // Process historical data to create line chart data - each individual image result
     const lineData: any[] = [];
     let globalDataPointIndex = 0;
-    
+
     historicalData.forEach((entry: any, analysisIndex: number) => {
       console.log(`🔍 DEBUG: Processing entry ${analysisIndex}:`, entry);
       const baseTime = new Date(entry.timestamp);
-      
+
       // Group results by image (T0, T1, T2, etc.)
       const imageGroups: { [key: string]: any[] } = {};
-      
-      entry.results.forEach((result: any) => {
-        // Extract image identifier (T0, T1, T2, etc.)
-        const imageMatch = result.product.match(/\(([^)]+)\)$/);
-        const imageId = imageMatch ? imageMatch[1] : 'T0';
-        console.log(`🔍 DEBUG: Product "${result.product}" -> ImageId "${imageId}"`);
-        
-        if (!imageGroups[imageId]) {
-          imageGroups[imageId] = [];
-        }
-        imageGroups[imageId].push(result);
-      });
-      
-      console.log(`🔍 DEBUG: Image groups for entry ${analysisIndex}:`, imageGroups);
-      
+
+      // Support both legacy array results and new groupedResults shape
+      if (
+        entry &&
+        entry.groupedResults &&
+        typeof entry.groupedResults === "object"
+      ) {
+        Object.entries(entry.groupedResults).forEach(([timeKey, arr]: any) => {
+          imageGroups[timeKey] = Array.isArray(arr) ? arr : [];
+        });
+      } else if (Array.isArray(entry?.results)) {
+        entry.results.forEach((result: any) => {
+          // Extract image identifier (T0, T1, T2, etc.)
+          const imageMatch = result.product?.match(/\(([^)]+)\)$/);
+          const imageId = imageMatch ? imageMatch[1] : "T0";
+          console.log(
+            `🔍 DEBUG: Product "${result.product}" -> ImageId "${imageId}"`
+          );
+
+          if (!imageGroups[imageId]) {
+            imageGroups[imageId] = [];
+          }
+          imageGroups[imageId].push(result);
+        });
+      } else {
+        // Unknown entry shape; skip
+        return;
+      }
+
+      console.log(
+        `🔍 DEBUG: Image groups for entry ${analysisIndex}:`,
+        imageGroups
+      );
+
       // Create a data point for each individual image
       Object.keys(imageGroups).forEach((imageId, imageIndex) => {
-        const time = new Date(baseTime.getTime() + (imageIndex * 60000)).toLocaleTimeString("en-US", {
+        const time = new Date(
+          baseTime.getTime() + imageIndex * 60000
+        ).toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
         });
-        
-        const dataPoint: any = { 
+
+        const dataPoint: any = {
           time: time,
           imageId: imageId,
-          analysisIndex: globalDataPointIndex + 1  // Each image gets its own unique index
+          analysisIndex: globalDataPointIndex + 1, // Each image gets its own unique index
         };
-        
+
         // Add stock levels for each product in this image
         imageGroups[imageId].forEach((result: any) => {
-          const baseProduct = result.product.replace(/\s*\([^)]*\)$/, '');
+          const baseProduct = result.product.replace(/\s*\([^)]*\)$/, "");
           dataPoint[baseProduct] = Math.round(result.stock_percentage * 100);
         });
-        
+
         lineData.push(dataPoint);
         globalDataPointIndex++;
         console.log(`🔍 DEBUG: Created data point for ${imageId}:`, dataPoint);
@@ -285,9 +589,40 @@ function Dashboard() {
     return lineData;
   };
 
-  console.log("🔍 DEBUG: About to call createLineChartData");
-  const dynamicLineChartData = createLineChartData();
-  console.log("🔍 DEBUG: dynamicLineChartData result:", dynamicLineChartData);
+  // Compute line chart data on client after state changes
+  useEffect(() => {
+    try {
+      // If section selected and grouped data available, build per-section across times (T0, T1, ...)
+      if (groupedResults && selectedSection && availableTimes.length > 0) {
+        const series: any[] = [];
+        // Use availableTimes order
+        availableTimes.forEach((t) => {
+          const arr = groupedResults[t] || [];
+          const match = arr.find(
+            (item: any) =>
+              String(item.product || "").replace(/\s*\([^)]*\)$/, "") ===
+              selectedSection
+          );
+          const dp: any = { time: t };
+          if (match) {
+            dp[selectedSection] = Math.round(
+              (match.stock_percentage ?? 0) * 100
+            );
+          }
+          series.push(dp);
+        });
+        setLineData(series);
+        return;
+      }
+
+      const data = createLineChartData();
+      setLineData(data);
+      console.log("🔍 DEBUG: lineData updated:", data);
+    } catch (e) {
+      console.warn("line chart data build failed", e);
+      setLineData([]);
+    }
+  }, [groupedResults, products, selectedTime, selectedSection, availableTimes]);
 
   return (
     <body className="">
@@ -378,6 +713,96 @@ function Dashboard() {
 
       <div className="bg-primary rounded-4xl max-w-7xl mx-5 xl:mx-auto mt-5 mb-5 px-4 sm:px-6 lg:px-8 py-5">
         <h1 className="text-xl font-bold">Product Overview</h1>
+        {availableTimes.length > 0 && (
+          <div
+            className="flex items-center gap-2 mt-2 mb-5"
+            role="tablist"
+            aria-label="Time selection"
+          >
+            <span className="text-sm ">Time:</span>
+            {availableTimes.map((t) => {
+              const selected = selectedTime === t;
+              const count = groupedResults?.[t]?.length ?? 0;
+              return (
+                <button
+                  key={t}
+                  role="tab"
+                  aria-selected={selected}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setSelectedTime(t)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      const current = availableTimes.indexOf(
+                        selectedTime || ""
+                      );
+                      const dir = e.key === "ArrowRight" ? 1 : -1;
+                      const next =
+                        (current + dir + availableTimes.length) %
+                        availableTimes.length;
+                      setSelectedTime(availableTimes[next]);
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-full text-sm border border-gray-300 ${selected ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white " : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                  title={`Sections: ${count}`}
+                >
+                  <span className="align-middle">{t}</span>
+                  <span
+                    className={`ml-2 inline-flex items-center justify-center text-xs px-1.5 py-0.5 rounded-full ${selected ? "bg-white text-blue-700" : "bg-gray-300 text-gray-700"}`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Section toggle */}
+        {availableSections.length > 0 && (
+          <div
+            className="flex items-center gap-2 mt-2 mb-5"
+            aria-label="Section selection"
+          >
+            <span className="text-sm">Section:</span>
+            <button
+              aria-label="Scroll sections left"
+              onClick={() => scrollSectionBy(-240)}
+              className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div
+              ref={sectionScrollRef}
+              className="flex gap-2 overflow-x-auto no-scrollbar"
+              style={{ scrollbarWidth: "none" }}
+              role="tablist"
+            >
+              {availableSections.map((s) => {
+                const sel = selectedSection === s;
+                return (
+                  <button
+                    key={s}
+                    role="tab"
+                    aria-selected={sel}
+                    tabIndex={sel ? 0 : -1}
+                    onClick={() => setSelectedSection(s)}
+                    className={`px-3 py-1 rounded-full text-sm border whitespace-nowrap border-gray-300 ${sel ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white " : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              aria-label="Scroll sections right"
+              onClick={() => scrollSectionBy(240)}
+              className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {/* Chart Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Bar Chart for latest record */}
@@ -399,15 +824,14 @@ function Dashboard() {
                     />
                     <ChartTooltip
                       cursor={false}
-                      content={<ChartTooltipContent hideLabel />}
+                      content={<ChartTooltipContent />}
                     />
                     <Bar dataKey="stock" radius={8}>
-                      {BarChartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={chartcolors[index % chartcolors.length]}
-                        />
-                      ))}
+                      {BarChartData.map((entry, index) => {
+                        const base = getBaseProduct(entry.name);
+                        const fill = colorForBase(base);
+                        return <Cell key={`cell-${index}`} fill={fill} />;
+                      })}
                     </Bar>
                   </BarChart>
                 </ChartContainer>
@@ -426,11 +850,11 @@ function Dashboard() {
               <CardDescription>{LineDescription}</CardDescription>
             </CardHeader>
             <CardContent>
-              {dynamicLineChartData.length > 0 ? (
+              {lineData.length > 0 ? (
                 <ChartContainer config={chartConfig}>
                   <LineChart
                     accessibilityLayer
-                    data={dynamicLineChartData}
+                    data={lineData}
                     margin={{
                       left: 12,
                       right: 12,
@@ -448,7 +872,7 @@ function Dashboard() {
                       cursor={false}
                       content={<ChartTooltipContent />}
                     />
-                    {getSeriesKeys(dynamicLineChartData).map((key, i) => {
+                    {getSeriesKeys(lineData).map((key, i) => {
                       return (
                         <Line
                           key={key}
@@ -604,45 +1028,4 @@ function Dashboard() {
 
 export default Dashboard;
 
-export const mockProducts = [
-  {
-    id: 1,
-    product: "Potato Section",
-    stock: "80%",
-    status: "High",
-    confidence: "92%",
-    updatedAt: "Today, 2:45 PM",
-  },
-  {
-    id: 2,
-    product: "Onion",
-    stock: "20%",
-    status: "Low",
-    confidence: "88%",
-    updatedAt: "Today, 2:42 PM",
-  },
-  {
-    id: 3,
-    product: "Eggplant Section",
-    stock: "60%",
-    status: "Medium",
-    confidence: "85%",
-    updatedAt: "Today, 2:40 PM",
-  },
-  {
-    id: 4,
-    product: "Tomato",
-    stock: "95%",
-    status: "High",
-    confidence: "94%",
-    updatedAt: "Today, 2:38 PM",
-  },
-  {
-    id: 5,
-    product: "Cucumber",
-    stock: "45%",
-    status: "Medium",
-    confidence: "90%",
-    updatedAt: "Today, 2:35 PM",
-  },
-];
+// Removed mock products. Empty state is the default now.

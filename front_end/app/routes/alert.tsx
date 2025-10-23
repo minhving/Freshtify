@@ -21,43 +21,29 @@ function Alert() {
   const [lowStock, setLowStock] = useState<AnalysisResult[]>([]);
   const [timestamp, setTimestamp] = useState<string | null>(null);
 
-  const seedSampleLowStock = () => {
-    const sample: AnalysisData = {
-      timestamp: new Date().toISOString(),
-      results: [
-        {
-          product: "banana",
-          stock_percentage: 0.12,
-          stock_status: "low",
-          confidence: 0.92,
-        },
-        {
-          product: "broccoli",
-          stock_percentage: 0.22,
-          stock_status: "low",
-          confidence: 0.88,
-        },
-        {
-          product: "onion",
-          stock_percentage: 0.28,
-          stock_status: "low",
-          confidence: 0.81,
-        },
-      ],
-    };
-
-    localStorage.setItem("latestAnalysis", JSON.stringify(sample));
-    setTimestamp(sample.timestamp ?? null);
-    const items = (sample.results ?? []).filter((r) => {
-      if (r.stock_status) return r.stock_status === "low";
-      return (r.stock_percentage ?? 1) < 0.3;
-    });
-    setLowStock(items);
-  };
+  const renderEmpty = () => (
+    <div className="bg-white rounded-2xl p-8 text-center shadow">
+      <div className="mx-auto w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
+        <AlertTriangle className="text-yellow-600" />
+      </div>
+      <h2 className="text-xl font-semibold mb-2 text-primary">
+        No low-stock alerts
+      </h2>
+      <p className="text-gray-600 mb-6">
+        Upload a new image to analyze stock levels and generate alerts.
+      </p>
+      <Button onClick={() => navigate("/upload")} variant="secondary">
+        Analyze Shelf Image
+      </Button>
+    </div>
+  );
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    console.log("alert mounted (client)");
     try {
       const raw = localStorage.getItem("latestAnalysis");
+      console.log("raw", raw);
       if (!raw) return;
       const data: AnalysisData = JSON.parse(raw);
       setTimestamp(data.timestamp ?? null);
@@ -72,23 +58,8 @@ function Alert() {
     }
   }, []);
 
-  const renderEmpty = () => (
-    <div className="bg-white rounded-2xl p-8 text-center shadow">
-      <div className="mx-auto w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
-        <AlertTriangle className="text-yellow-600" />
-      </div>
-      <h2 className="text-xl font-semibold mb-2">No low-stock alerts</h2>
-      <p className="text-gray-600 mb-6">
-        Upload a new image to analyze stock levels and generate alerts.
-      </p>
-      <Button onClick={() => navigate("/upload")} variant="secondary">
-        Analyze Shelf Image
-      </Button>
-    </div>
-  );
-
   return (
-    <body>
+    <div>
       <div className="bg-primary rounded-4xl max-w-7xl mx-5 xl:mx-auto mt-5 px-4 sm:px-6 lg:px-8 py-5">
         {" "}
         <h1 className="text-xl font-bold">Alert</h1>
@@ -100,11 +71,6 @@ function Alert() {
               ? `Last analyzed: ${new Date(timestamp).toLocaleString()}`
               : "Run an analysis to see alerts"}
           </p>
-          <div className="mt-3">
-            <Button onClick={seedSampleLowStock} variant="secondary">
-              Load sample low-stock data
-            </Button>
-          </div>
         </div>
 
         {lowStock.length === 0 ? (
@@ -151,7 +117,7 @@ function Alert() {
           </div>
         )}
       </div>
-    </body>
+    </div>
   );
 }
 

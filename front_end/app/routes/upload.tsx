@@ -86,6 +86,8 @@ export default function Upload() {
   };
 
   const handleUpload = async () => {
+    console.log("handleupload");
+    console.log("Uploading files:", files);
     if (files.length > 0) {
       setIsLoading(true);
       setShowAnalyzing(true);
@@ -94,75 +96,47 @@ export default function Upload() {
 
       try {
         const formData = new FormData();
-        
-        // Handle single vs multiple files
-        if (files.length === 1) {
-          // Single file - use integrated endpoint
-          formData.append("file", files[0]);
-          formData.append("products", "potato section,onion,eggplant section,tomato,cucumber");
-          formData.append("confidence_threshold", "0.7");
+        // Always use the multiple endpoint (even for a single image)
+        files.forEach((file) => {
+          formData.append("files", file);
+        });
+        formData.append(
+          "products",
+          "potato section,onion,eggplant section,tomato,cucumber"
+        );
+        formData.append("confidence_threshold", "0.7");
 
-          console.log("Uploading single image to integrated AI endpoint...");
+        console.log(
+          `Uploading ${files.length} image(s) to multiple AI endpoint...`
+        );
 
-          // Simulate progress updates
-          const progressInterval = setInterval(() => {
-            setProgress((prev) => Math.min(prev + 10, 90));
-          }, 2000);
+        // Simulate progress updates
+        const step = files.length > 1 ? 5 : 10;
+        const intervalMs = files.length > 1 ? 3000 : 2000;
+        const progressInterval = setInterval(() => {
+          setProgress((prev) => Math.min(prev + step, 90));
+        }, intervalMs);
 
-          const response = await axios.post(
-            API_ENDPOINTS.ESTIMATE_STOCK_INTEGRATED,
-            formData,
-            {
-              headers: API_CONFIG.HEADERS,
-              timeout: API_CONFIG.TIMEOUT,
-            }
-          );
+        const response = await axios.post(
+          API_ENDPOINTS.ESTIMATE_STOCK_MULTIPLE,
+          formData,
+          {
+            headers: API_CONFIG.HEADERS,
+            timeout:
+              files.length > 1 ? API_CONFIG.TIMEOUT * 2 : API_CONFIG.TIMEOUT,
+          }
+        );
 
-          clearInterval(progressInterval);
-          setProgress(100);
+        clearInterval(progressInterval);
+        setProgress(100);
 
-          console.log("AI Analysis Response:", response.data);
+        console.log("AI Analysis Response:", response.data);
 
-          // Store the analysis results in localStorage for the dashboard
-          localStorage.setItem("latestAnalysis", JSON.stringify(response.data));
+        // Store the analysis results in localStorage for the dashboard
+        localStorage.setItem("latestAnalysis", JSON.stringify(response.data));
 
-          // Navigate to dashboard
-          navigate("/dashboard");
-        } else {
-          // Multiple files - use multiple endpoint
-          files.forEach((file, index) => {
-            formData.append("files", file);
-          });
-          formData.append("products", "potato section,onion,eggplant section,tomato,cucumber");
-          formData.append("confidence_threshold", "0.7");
-
-          console.log(`Uploading ${files.length} images to multiple AI endpoint...`);
-
-          // Simulate progress updates for multiple images
-          const progressInterval = setInterval(() => {
-            setProgress((prev) => Math.min(prev + 5, 90)); // Slower progress for multiple images
-          }, 3000);
-
-          const response = await axios.post(
-            API_ENDPOINTS.ESTIMATE_STOCK_MULTIPLE,
-            formData,
-            {
-              headers: API_CONFIG.HEADERS,
-              timeout: API_CONFIG.TIMEOUT * 2, // Double timeout for multiple images
-            }
-          );
-
-          clearInterval(progressInterval);
-          setProgress(100);
-
-          console.log("Multiple Image AI Analysis Response:", response.data);
-
-          // Store the analysis results in localStorage for the dashboard
-          localStorage.setItem("latestAnalysis", JSON.stringify(response.data));
-
-          // Navigate to dashboard
-          navigate("/dashboard");
-        }
+        // Navigate to dashboard
+        navigate("/dashboard");
       } catch (error: any) {
         console.error("Upload failed:", error);
 
@@ -268,12 +242,6 @@ export default function Upload() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {files.map((file, index) => {
-                  console.log(
-                    `Rendering file ${index}:`,
-                    file.name,
-                    "Preview URL:",
-                    previewUrls[index] ? "exists" : "missing"
-                  );
                   return (
                     <div
                       key={index}
