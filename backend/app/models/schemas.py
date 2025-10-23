@@ -17,11 +17,11 @@ class StockLevel(str, Enum):
 
 class ProductType(str, Enum):
     """Supported product types."""
-    BANANA = "banana"
-    BROCCOLI = "broccoli"
-    AVOCADO = "avocado"
-    TOMATO = "tomato"
+    POTATO_SECTION = "potato section"
     ONION = "onion"
+    EGGPLANT_SECTION = "eggplant section"
+    TOMATO = "tomato"
+    CUCUMBER = "cucumber"
 
 
 class StockEstimationRequest(BaseModel):

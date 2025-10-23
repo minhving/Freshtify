@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     
     # API Settings
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 8001
     DEBUG: bool = True
     
     # CORS Settings

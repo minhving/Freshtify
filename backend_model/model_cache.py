@@ -18,6 +18,9 @@ def get_model(name):
         elif name == "depth":
             model = DepthModel()
             model.load()
+        elif name == "gemini":
+            model = Gemini()
+            model.load()
         else:
             raise ValueError(f"Unknown model: {name}")
         _models[name] = model

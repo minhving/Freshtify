@@ -14,7 +14,6 @@ from datetime import datetime
 from app.models.schemas import (
     StockEstimationRequest,
     StockEstimationResponse,
-    StockEstimationMultipleResponse,
     ProductStockInfo,
     ProductType,
     StockLevel,
@@ -417,7 +416,7 @@ async def estimate_stock_batch(
 @router.post("/estimate-stock-integrated", response_model=StockEstimationResponse)
 async def estimate_stock_integrated(
     file: UploadFile = File(...),
-    products: str = Form("banana,broccoli"),
+    products: str = Form("potato section,onion,eggplant section,tomato,cucumber"),
     confidence_threshold: float = Form(0.7)
 ):
     """
@@ -464,7 +463,7 @@ async def estimate_stock_integrated(
             status_code=500, detail=f"Integrated estimation failed: {str(e)}")
 
 
-@router.post("/estimate-stock-multiple", response_model=StockEstimationMultipleResponse)
+@router.post("/estimate-stock-multiple", response_model=StockEstimationResponse)
 async def estimate_stock_multiple(
     files: List[UploadFile] = File(...),
     products: str = Form(
@@ -750,12 +749,12 @@ if __name__ == "__main__":
 
                 processing_time = time.time() - start_time
 
-                return StockEstimationMultipleResponse(
+                return StockEstimationResponse(
                     success=True,
                     message=f"Stock estimation completed successfully for {len(image_paths)} images using integrated AI models",
                     processing_time=processing_time,
                     timestamp=datetime.utcnow().isoformat() + "Z",
-                    results=grouped_results,
+                    results=final_results,
                     model_used="integrated-ai-multiple",
                     image_metadata={
                         "image_count": len(image_paths),

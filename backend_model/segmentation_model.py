@@ -14,8 +14,8 @@ class SegmentationModel:
         results = self.model_seg.predict(image_path, bboxes = xyxy)
         for index, names in results[0].names.items():
             results[0].names[index] = f"{labels[index]}"
-        results[0].show()
-        results[0].save("../Captone_AI/result_images/result_segmentation_image.jpg")
+        #results[0].show()
+        #results[0].save("../Captone_AI/result_images/result_segmentation_image.jpg")
         return results
 
 

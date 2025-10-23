@@ -67,7 +67,7 @@ class DetectionModel:
             text_threshold=0.1,
             threshold=0.1
         )
-        self.show_gd_results(image, results)
+        #self.show_gd_results(image, results)
         return results
 
     def iou_matrix(self, box, boxes):
