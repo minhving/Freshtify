@@ -12,9 +12,9 @@ import json
 from datetime import datetime
 
 from app.models.schemas import (
-    StockEstimationRequest,
-    StockEstimationResponse,
-    ProductStockInfo,
+    StockEstimationRequest, 
+    StockEstimationResponse, 
+    ProductStockInfo, 
     ProductType,
     StockLevel,
     ModelInfo,
@@ -39,113 +39,23 @@ async def run_main_py_analysis(image_path: str, products: List[str]) -> List[Pro
         project_root = os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
-        dataset_path = os.path.join(project_root, "dataset", "test_image.jpg")
+        # Copy uploaded image to dataset folder with T0.jpg name (as expected by main.py)
+        dataset_path = os.path.join(project_root, "dataset", "T0.jpg")
         import shutil
         shutil.copy2(image_path, dataset_path)
         logger.info(f"Copied uploaded image to {dataset_path}")
 
-        # Read the original main.py and modify it to use the uploaded image
+        # Run main.py directly without modifying it
         main_py_path = os.path.join(project_root, "main.py")
-
-        # Read the original main.py content
-        with open(main_py_path, "r") as f:
-            original_content = f.read()
-
-        # Replace the hardcoded image path with the uploaded image
-        modified_content = original_content.replace(
-            'image = Image.open("dataset/onion.png")',
-            'image = Image.open("dataset/test_image.jpg")'
-        ).replace(
-            'image_path = "dataset/onion.png"',
-            'image_path = "dataset/test_image.jpg"'
-        )
-
-        # Write the modified main.py
-        with open(main_py_path, "w") as f:
-            f.write(modified_content)
-
-        logger.info("Modified main.py to use uploaded image")
-
-        # Create analysis script based on your main.py
-        analysis_script = f"""
-import sys
-import os
-import json
-
-# Add the project root to the path
-sys.path.append(r"{project_root}")
-
-# Import modules (same as your main.py)
-from backend_model.imports import *
-from backend_model.detection_model import *
-from backend_model.segmentation_model import *
-from backend_model.prob_calculation import *
-from backend_model.stock_estimation_depth import *
-import json
-
-image = Image.open("dataset/test_image.jpg")
-image_path = "dataset/test_image.jpg"
-class_names = ' '.join({products})
-
-if __name__ == "__main__":
-    # Initialize and load models
-    detection_model = DetectionModel()
-    segmentation_model = SegmentationModel("sam2.1_l.pt")
-    depth_model = DepthModel()
-
-    detection_model.load_model()
-    segmentation_model.load()
-    depth_model.load()
-
-    # Detection
-    xyxy, labels, scores = detection_model.detect(image, class_names)
-
-    # Segmentation
-    results_seg = segmentation_model.segment(image_path, xyxy, labels)
-
-    # Compute fullness (depth-based)
-    stock_dict = depth_model.compute_stock(results_seg, image_path)
-
-    # Visualize
-    depth_model.visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
-
-    # Calculate probs
-    probs = depth_model.cal_probs(stock_dict)
-    
-    # Prepare results in the format expected by the API
-    results = []
-    for product in {products}:
-        if product in stock_dict:
-            results.append({{
-                "product": product,
-                "stock_percentage": stock_dict[product] / 100,
-                "confidence": probs.get(product, 0.5) if probs else 0.5,
-                "reasoning": f"AI model detected {{product}} with {{stock_dict[product]:.1f}}% stock level"
-            }})
-    
-    # Output results as JSON
-    print(json.dumps(results))
-"""
-
-        # Write the analysis script in the project root
-        script_path = os.path.join(project_root, "run_analysis.py")
-        with open(script_path, "w") as f:
-            f.write(analysis_script)
-
-        # Run the analysis script from project root
+        
         logger.info(f"Running main.py analysis on {image_path}")
         logger.info(f"Project root: {project_root}")
         logger.info("This may take 2-5 minutes for AI model processing...")
 
-        # Use absolute path to main.py
-        main_py_absolute_path = os.path.join(project_root, "main.py")
-        logger.info(f"Main.py absolute path: {main_py_absolute_path}")
-
         # Check if main.py exists
-        if not os.path.exists(main_py_absolute_path):
-            logger.error(f"Main.py file not found at: {main_py_absolute_path}")
-            raise Exception(
-                f"Main.py file not found at: {main_py_absolute_path}")
+        if not os.path.exists(main_py_path):
+            logger.error(f"Main.py file not found at: {main_py_path}")
+            raise Exception(f"Main.py file not found at: {main_py_path}")
 
         # Check if dataset directory exists
         dataset_dir = os.path.join(project_root, "dataset")
@@ -153,8 +63,9 @@ if __name__ == "__main__":
             logger.error(f"Dataset directory not found at: {dataset_dir}")
             raise Exception(f"Dataset directory not found at: {dataset_dir}")
 
+        # Run main.py directly
         result = subprocess.run(
-            ["python", main_py_absolute_path],
+            ["python", main_py_path],
             capture_output=True,
             text=True,
             cwd=project_root,
@@ -162,101 +73,74 @@ if __name__ == "__main__":
         )
 
         # Log the full output for debugging
-        logger.info(f"Script stdout: {result.stdout}")
-        logger.info(f"Script stderr: {result.stderr}")
+        logger.info(f"Main.py stdout: {result.stdout}")
+        logger.info(f"Main.py stderr: {result.stderr}")
 
-        # Restore the original main.py
-        with open(main_py_path, "w") as f:
-            f.write(original_content)
-        logger.info("Restored original main.py")
-
-        # Clean up the script file
-        if os.path.exists(script_path):
-            os.remove(script_path)
         if result.returncode != 0:
             logger.error(f"Main.py analysis failed: {result.stderr}")
             logger.info("Falling back to basic analysis...")
-
             # Fallback to basic analysis
             return await ai_engine.estimate_stock_basic_cv(image_path, products, 0.7)
 
-        # Parse the main.py output (probabilities dictionary)
+        # Parse the main.py output from print_result() method
         try:
-            # Get the last line which should contain the probabilities dictionary
-            output_lines = result.stdout.strip().split('\n')
-            probs_line = output_lines[-1] if output_lines else ""
-            logger.info(f"Parsing probabilities from: {probs_line}")
-
-            # Use eval to parse the Python dictionary (since it's not JSON)
-            import ast
-            probs_dict = ast.literal_eval(probs_line)
-            logger.info(f"Parsed probabilities: {probs_dict}")
-
-            # Convert to the expected format using the actual product names and stock percentages from main.py
-            analysis_results = []
-
-            # Use the actual product names from main.py output
-            for main_py_product, stock_value in probs_dict.items():
-                # Use the actual stock percentage from main.py (already in 0-100 range)
-                stock_percentage = stock_value / 100  # Convert to 0-1 range
+            # Parse the output from print_result() method
+            # Expected format: "class_name - section N: percentage%"
+            import re
+            stock_pattern = r"([^-]+)\s*-\s*section\s*(\d+):\s*([\d.]+)%"
+            matches = re.findall(stock_pattern, result.stdout)
+            
+            logger.info(f"Found {len(matches)} stock matches in output")
+            
+            # Convert to ProductStockInfo format
+            results = []
+            for match in matches:
+                product_name = match[0].strip()
+                section_num = int(match[1])
+                percentage = float(match[2])
+                
+                # Convert percentage to 0-1 range
+                stock_percentage = percentage / 100.0
+                
+                # Determine stock level
+                if stock_percentage < 0.3:
+                    stock_status = StockLevel.LOW
+                elif stock_percentage > 0.8:
+                    stock_status = StockLevel.OVERSTOCKED
+                else:
+                    stock_status = StockLevel.NORMAL
+                
                 # Confidence based on stock level
                 confidence = min(stock_percentage * 1.1, 0.95)
-
-                analysis_results.append({
-                    "product": main_py_product,  # Use the actual product name from main.py
-                    "stock_percentage": stock_percentage,
-                    "confidence": confidence,
-                    "reasoning": f"AI model detected {main_py_product} with {stock_value:.1f}% stock level"
-                })
-
-        except (ValueError, SyntaxError, IndexError) as e:
-            logger.error(
-                f"Failed to parse main.py probabilities: {result.stdout}")
-            logger.error(f"Parse error: {e}")
+                
+                results.append(ProductStockInfo(
+                    product=f"{product_name} section {section_num}",
+                    stock_percentage=stock_percentage,
+                    stock_status=stock_status,
+                    confidence=confidence,
+                    reasoning=f"AI model detected {product_name} section {section_num} with {percentage:.1f}% stock level"
+                ))
+            
+            logger.info(f"Parsed {len(results)} products from main.py output")
+            
+        except Exception as e:
+            logger.error(f"Failed to parse main.py output: {e}")
+            logger.error(f"Raw output: {result.stdout}")
             # Fallback: create results based on requested products
-            analysis_results = []
+            results = []
             for product in products:
-                analysis_results.append({
-                    # Add image identifier for single image
-                    "product": f"{product} (T0)",
-                    "stock_percentage": 0.5,  # Default medium stock
-                    "confidence": 0.5,  # Default medium confidence
-                    "reasoning": f"Fallback analysis for {product}"
-                })
-        # Convert to ProductStockInfo format
-        results = []
-        for item in analysis_results:
-            stock_percentage = item["stock_percentage"]
-            confidence = item["confidence"]
+                results.append(ProductStockInfo(
+                    product=f"{product} section 1",
+                    stock_percentage=0.5,  # Default medium stock
+                    stock_status=StockLevel.NORMAL,
+                    confidence=0.5,  # Default medium confidence
+                    reasoning=f"Fallback analysis for {product}"
+                ))
 
-            # Determine stock level
-            if stock_percentage < 0.3:
-                stock_status = StockLevel.LOW
-            elif stock_percentage > 0.8:
-                stock_status = StockLevel.OVERSTOCKED
-            else:
-                stock_status = StockLevel.NORMAL
-
-            results.append(ProductStockInfo(
-                product=item["product"],  # Already has (T0) identifier
-                stock_percentage=stock_percentage,
-                stock_status=stock_status,
-                confidence=confidence,
-                reasoning=item["reasoning"]
-            ))
-
-        logger.info(
-            f"AI analysis completed successfully for {len(results)} products")
+        logger.info(f"AI analysis completed successfully for {len(results)} products")
         return results
 
     except Exception as e:
-        # Restore the original main.py in case of error
-        try:
-            with open(main_py_path, "w") as f:
-                f.write(original_content)
-            logger.info("Restored original main.py after error")
-        except:
-            pass
         logger.error(f"Error running main.py analysis: {e}")
         raise
 
@@ -278,20 +162,20 @@ async def estimate_stock(
     Estimate stock levels from uploaded image or video.
     """
     start_time = time.time()
-
+    
     try:
         # Validate file
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
-
+        
         # Check file extension
         file_ext = os.path.splitext(file.filename)[1].lower()
         if file_ext not in settings.ALLOWED_EXTENSIONS:
             raise HTTPException(
-                status_code=400,
+                status_code=400, 
                 detail=f"File type {file_ext} not supported. Allowed: {settings.ALLOWED_EXTENSIONS}"
             )
-
+        
         # Parse products list
         product_list = None
         if products:
@@ -301,10 +185,10 @@ async def estimate_stock(
             except ValueError as e:
                 raise HTTPException(
                     status_code=400, detail=f"Invalid product type: {str(e)}")
-
+        
         # Process file
         processed_data = await file_processor.process_upload(file)
-
+        
         # Run AI estimation
         results = await ai_engine.estimate_stock_levels(
             processed_data=processed_data,
@@ -312,9 +196,9 @@ async def estimate_stock(
             products=product_list,
             confidence_threshold=confidence_threshold
         )
-
+        
         processing_time = time.time() - start_time
-
+        
         return StockEstimationResponse(
             success=True,
             message="Stock estimation completed successfully",
@@ -323,13 +207,13 @@ async def estimate_stock(
             model_used=model_type,
             image_metadata=processed_data.get("metadata", {})
         )
-
+    
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Stock estimation failed: {str(e)}")
         processing_time = time.time() - start_time
-
+        
         return StockEstimationResponse(
             success=False,
             message=f"Stock estimation failed: {str(e)}",
@@ -378,7 +262,7 @@ async def estimate_stock_batch(
         if len(files) > 10:  # Limit batch size
             raise HTTPException(
                 status_code=400, detail="Maximum 10 files allowed per batch")
-
+        
         results = []
         for file in files:
             try:
@@ -398,14 +282,14 @@ async def estimate_stock_batch(
                     "filename": file.filename,
                     "error": str(e)
                 })
-
+        
         return {
             "success": True,
             "message": f"Batch processing completed for {len(files)} files",
             "results": results,
             "timestamp": datetime.now()
         }
-
+    
     except HTTPException:
         raise
     except Exception as e:
@@ -532,73 +416,12 @@ async def estimate_stock_multiple(
                 shutil.copy2(image_path, dest_path)
                 logger.info(f"Copied image to {dest_path}")
 
-            # Update main.py to process multiple images
+            # Run main.py directly without modifying it
             main_py_path = os.path.join(project_root, "main.py")
-
-            # Read the original main.py content
-            with open(main_py_path, "r") as f:
-                original_content = f.read()
-
-            # Create updated main.py for multiple images
-            updated_content = f"""
-from backend_model.imports import *
-from backend_model.model_cache import get_model
-
-image_arr = {[f'T{i}' for i in range(len(image_paths))]}
-class_names = 'potato section . onion . eggplant section . tomato . cucumber .'
-
-if __name__ == "__main__":
-    # Initialize and load models
-    detection_model = get_model("detection")
-    segmentation_model = get_model("segmentation")
-    depth_model = get_model("depth")
-
-    all_results = []
-    
-    for name in image_arr:
-        image_path = f"dataset/{{name}}.jpg"
-        image = Image.open(image_path)
-
-        # Detection
-        xyxy, labels, scores = detection_model.detect(image, class_names)
-
-        # Segmentation
-        results_seg = segmentation_model.segment(image_path, xyxy, labels)
-
-        # Depth and compute stock
-        stock_dict = depth_model.compute_stock(results_seg, image_path)
-        
-        # Store results for this image
-        image_results = {{
-            "image_name": name,
-            "stock_dict": stock_dict
-        }}
-        all_results.append(image_results)
-        
-        print(f"Image: {{name}}")
-        print(f"Stock dict: {{stock_dict}}")
-        print(f"Length stock dict {{len(stock_dict)}}")
-        depth_model.print_result(stock_dict)
-        print("\\n" + "="*50 + "\\n")
-
-    # Output all results as JSON
-    import json
-    print("FINAL_RESULTS_START")
-    print(json.dumps(all_results))
-    print("FINAL_RESULTS_END")
-"""
-
-            # Write the updated main.py
-            with open(main_py_path, "w") as f:
-                f.write(updated_content)
-
-            logger.info("Updated main.py for multiple image processing")
-
-            # Run the updated main.py
+            
             logger.info("Running main.py analysis on multiple images...")
             logger.info(f"Project root: {project_root}")
-            logger.info(
-                "This may take 5-10 minutes for multiple AI model processing...")
+            logger.info("This may take 5-10 minutes for multiple AI model processing...")
 
             result = subprocess.run(
                 ["python", main_py_path],
@@ -607,11 +430,6 @@ if __name__ == "__main__":
                 cwd=project_root,
                 timeout=1200  # 20 minute timeout for multiple images
             )
-
-            # Restore the original main.py
-            with open(main_py_path, "w") as f:
-                f.write(original_content)
-            logger.info("Restored original main.py")
 
             # Log the output for debugging
             logger.info(f"Main.py stdout: {result.stdout}")
@@ -623,145 +441,139 @@ if __name__ == "__main__":
                 raise HTTPException(
                     status_code=500, detail="AI analysis failed")
 
-            # Parse the results from main.py output
+            # Parse the results from main.py output using print_result() format
             try:
-                # Extract JSON results from the output
+                # Parse the output from print_result() method
+                # Expected format: "class_name - section N: percentage%"
+                import re
+                stock_pattern = r"([^-]+)\s*-\s*section\s*(\d+):\s*([\d.]+)%"
+                
+                # Split output by "Processing image:" to identify different images
                 output_lines = result.stdout.strip().split('\n')
-                json_start = -1
-                json_end = -1
-
+                
+                # Find all "Processing image:" lines to determine image boundaries
+                processing_lines = []
                 for i, line in enumerate(output_lines):
-                    if "FINAL_RESULTS_START" in line:
-                        json_start = i + 1
-                    elif "FINAL_RESULTS_END" in line:
-                        json_end = i
-                        break
-
-                if json_start == -1 or json_end == -1:
-                    raise Exception("Could not find results in main.py output")
-
-                # Extract JSON content
-                json_content = '\n'.join(output_lines[json_start:json_end])
-                logger.info(f"Extracted JSON content: {json_content}")
-                all_results = json.loads(json_content)
-
-                logger.info(f"Parsed results for {len(all_results)} images")
-                logger.info(f"All results: {all_results}")
-
-                # Convert to ProductStockInfo format
-                final_results = []
-                # --- MOCK RAW SECTIONS (T0/T1) ---
-
-                for result_data in all_results:
-                    image_name = result_data["image_name"]
-                    stock_dict = result_data["stock_dict"]
-
-                    # Handle different stock_dict formats
-                    if isinstance(stock_dict, dict):
-                        # Expand EACH detected section as its own item (no averaging)
-                        for product, stock_value in stock_dict.items():
-                            # Array format: [[value, 1], [value, 1], ...]
-                            if isinstance(stock_value, list) and len(stock_value) > 0:
-                                for idx, item in enumerate(stock_value):
-                                    try:
-                                        value = item[0] if isinstance(item, list) and len(
-                                            item) >= 1 else float(item)
-                                    except Exception:
-                                        logger.warning(
-                                            f"Invalid stock value format for {product}: {item}")
-                                        continue
-                                    stock_percentage = float(value) / 100.0
-                                    confidence = min(
-                                        max(stock_percentage, 0.5) * 1.0, 0.95)
-                                    # Determine stock level
-                                    if stock_percentage < 0.3:
-                                        stock_status = StockLevel.LOW
-                                    elif stock_percentage > 0.8:
-                                        stock_status = StockLevel.OVERSTOCKED
-                                    else:
-                                        stock_status = StockLevel.NORMAL
-                                    final_results.append(ProductStockInfo(
-                                        product=f"{product} {idx+1} ({image_name})",
-                                        stock_percentage=stock_percentage,
-                                        stock_status=stock_status,
-                                        confidence=confidence,
-                                        reasoning=f"Detected section {idx+1} for {product} in {image_name} with {value:.1f}%"
-                                    ))
-                            # Handle simple numeric format
-                            elif isinstance(stock_value, (int, float)):
-                                stock_percentage = stock_value / 100  # Convert to 0-1 range
-                                confidence = min(stock_percentage * 1.1, 0.95)
-
-                                # Determine stock level
-                                if stock_percentage < 0.3:
-                                    stock_status = StockLevel.LOW
-                                elif stock_percentage > 0.8:
-                                    stock_status = StockLevel.OVERSTOCKED
-                                else:
-                                    stock_status = StockLevel.NORMAL
-
-                                final_results.append(ProductStockInfo(
-                                    product=f"{product} 1 ({image_name})",
-                                    stock_percentage=stock_percentage,
-                                    stock_status=stock_status,
-                                    confidence=confidence,
-                                    reasoning=f"AI model detected {product} in {image_name} with {stock_value:.1f}% stock level"
-                                ))
-                            else:
-                                logger.warning(
-                                    f"Unsupported stock_value format for {product}: {stock_value}")
-                    elif isinstance(stock_dict, list):
-                        # Handle list format - create generic results
-                        logger.info(
-                            f"Stock dict is a list with {len(stock_dict)} items for {image_name}")
-                        for i, item in enumerate(stock_dict):
-                            # Create a generic product entry
-                            stock_percentage = 0.5  # Default medium stock
-                            confidence = 0.7
+                    if "Processing image:" in line:
+                        processing_lines.append(i)
+                        logger.info(f"Found processing line {i}: {line.strip()}")
+                
+                logger.info(f"Found {len(processing_lines)} processing lines: {processing_lines}")
+                
+                # Group results by image (T0, T1, etc.)
+                grouped_results = {}
+                
+                # If no processing lines found, fallback to even distribution
+                if len(processing_lines) == 0:
+                    logger.warning("No 'Processing image:' lines found, falling back to even distribution")
+                    # Parse all matches and distribute evenly
+                    all_matches = re.findall(stock_pattern, result.stdout)
+                    matches_per_image = len(all_matches) // len(image_paths) if len(image_paths) > 0 else len(all_matches)
+                    
+                    for i, match in enumerate(all_matches):
+                        product_name = match[0].strip()
+                        section_num = int(match[1])
+                        percentage = float(match[2])
+                        
+                        # Convert percentage to 0-1 range
+                        stock_percentage = percentage / 100.0
+                        
+                        # Determine stock level
+                        if stock_percentage < 0.3:
+                            stock_status = StockLevel.LOW
+                        elif stock_percentage > 0.8:
+                            stock_status = StockLevel.OVERSTOCKED
+                        else:
                             stock_status = StockLevel.NORMAL
-
-                            final_results.append(ProductStockInfo(
-                                product=f"Product {i+1} ({image_name})",
+                        
+                        # Confidence based on stock level
+                        confidence = min(stock_percentage * 1.1, 0.95)
+                        
+                        # Determine which image this belongs to
+                        image_index = i // matches_per_image if matches_per_image > 0 else 0
+                        time_key = f"T{image_index}"
+                        
+                        if time_key not in grouped_results:
+                            grouped_results[time_key] = []
+                        
+                        grouped_results[time_key].append(ProductStockInfo(
+                            product=f"{product_name} section {section_num}",
+                            stock_percentage=stock_percentage,
+                            stock_status=stock_status,
+                            confidence=confidence,
+                            reasoning=f"AI model detected {product_name} section {section_num} with {percentage:.1f}% stock level"
+                        ))
+                else:
+                    # Process each image section separately
+                    for img_idx in range(len(processing_lines)):
+                        time_key = f"T{img_idx}"
+                        grouped_results[time_key] = []
+                        
+                        # Determine the range of lines for this image
+                        start_line = processing_lines[img_idx]
+                        end_line = processing_lines[img_idx + 1] if img_idx + 1 < len(processing_lines) else len(output_lines)
+                        
+                        # Extract lines for this image
+                        image_lines = output_lines[start_line:end_line]
+                        image_text = '\n'.join(image_lines)
+                        
+                        logger.info(f"Image {time_key}: Processing lines {start_line} to {end_line}")
+                        logger.info(f"Image {time_key}: Sample lines: {image_lines[:3] if len(image_lines) >= 3 else image_lines}")
+                        
+                        # Find matches in this image's output
+                        matches = re.findall(stock_pattern, image_text)
+                        
+                        logger.info(f"Image {time_key}: Found {len(matches)} matches")
+                        if matches:
+                            logger.info(f"Image {time_key}: First few matches: {matches[:3]}")
+                        
+                        # Process each match for this image
+                        for match in matches:
+                            product_name = match[0].strip()
+                            section_num = int(match[1])
+                            percentage = float(match[2])
+                            
+                            # Convert percentage to 0-1 range
+                            stock_percentage = percentage / 100.0
+                            
+                            # Determine stock level
+                            if stock_percentage < 0.3:
+                                stock_status = StockLevel.LOW
+                            elif stock_percentage > 0.8:
+                                stock_status = StockLevel.OVERSTOCKED
+                            else:
+                                stock_status = StockLevel.NORMAL
+                            
+                            # Confidence based on stock level
+                            confidence = min(stock_percentage * 1.1, 0.95)
+                            
+                            grouped_results[time_key].append(ProductStockInfo(
+                                product=f"{product_name} section {section_num}",
                                 stock_percentage=stock_percentage,
                                 stock_status=stock_status,
                                 confidence=confidence,
-                                reasoning=f"AI model detected item {i+1} in {image_name} with {stock_percentage:.1%} stock level"
+                                reasoning=f"AI model detected {product_name} section {section_num} with {percentage:.1f}% stock level"
                             ))
-                    else:
-                        logger.warning(
-                            f"Unknown stock_dict format for {image_name}: {type(stock_dict)}")
-                        # Create a fallback result
-                        final_results.append(ProductStockInfo(
-                            product=f"Unknown Product ({image_name})",
-                            stock_percentage=0.5,
-                            stock_status=StockLevel.NORMAL,
-                            confidence=0.5,
-                            reasoning=f"AI model processed {image_name} but returned unexpected format"
-                        ))
-
-                # Group per-section items by time key (e.g., T0, T1) and return grouped
-                grouped_results: dict[str, list[ProductStockInfo]] = {}
-                for item in final_results:
-                    # item.product format: "<name> N (T0)" -> extract T0
-                    try:
-                        time_key = item.product.split("(")[-1].rstrip(")")
-                    except Exception:
-                        time_key = "T0"
-                    grouped_results.setdefault(time_key, []).append(item)
-
+                
+                logger.info(f"Parsed results for {len(grouped_results)} images: {list(grouped_results.keys())}")
+                for time_key, results in grouped_results.items():
+                    logger.info(f"  {time_key}: {len(results)} products")
+                    if results:
+                        logger.info(f"    First product: {results[0].product}")
+                        logger.info(f"    Last product: {results[-1].product}")
+                
                 processing_time = time.time() - start_time
 
                 return StockEstimationMultipleResponse(
                     success=True,
-                    message=f"Stock estimation completed successfully for {len(image_paths)} images using integrated AI models",
+                    message=f"Stock estimation completed successfully for {len(image_paths)} images",
                     processing_time=processing_time,
                     timestamp=datetime.utcnow().isoformat() + "Z",
                     results=grouped_results,
                     model_used="integrated-ai-multiple",
                     image_metadata={
                         "image_count": len(image_paths),
-                        "images_processed": [f"T{i}" for i in range(len(image_paths))],
-                        "raw_sections": all_results
+                        "images_processed": [f"T{i}" for i in range(len(image_paths))]
                     }
                 )
 

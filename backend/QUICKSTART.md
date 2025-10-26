@@ -122,7 +122,7 @@ python -c "import torch; print(torch.cuda.is_available())"
 **3. Port Already in Use**
 ```bash
 # Change the port in .env file or use a different port
-python -m uvicorn app.main:app --reload --port 8001
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 **4. Memory Issues**

@@ -1,5 +1,4 @@
 from backend_model.imports import *
-import torch.nn.functional as F
 CLASSES = ["potato section", "onion", "eggplant section", "tomato", "cucumber"]
 class DepthModel:
     def __init__(self, model_type="DPT_Hybrid"):
@@ -236,7 +235,7 @@ class DepthModel:
             pos_dic.setdefault(cls, []).append(box)
             stock_dict.setdefault(cls, []).append(val)
         # self.visualize_stock(img_path, self.result_root_seg, stock_dict, save_path=f"{img_path}_depth_estimation_overlay.jpg")
-        return stock_dict
+        return stock_dict, pos_dic
 
     def visualize_stock(self,img_path, results_seg, stock_dict, save_path="stock_overlay.jpg"):
         img = cv2.imread(img_path)

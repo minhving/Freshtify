@@ -14,8 +14,8 @@ def start_server():
     """Start the FastAPI server with hardcoded settings."""
     try:
         print("Starting AI Stock Level Estimation API server...")
-        print("Server will be available at: http://localhost:8001")
-        print("API Documentation: http://localhost:8001/docs")
+        print("Server will be available at: http://localhost:8000")
+        print("API Documentation: http://localhost:8000/docs")
         print("Press Ctrl+C to stop the server")
         print("-" * 50)
         
@@ -23,7 +23,7 @@ def start_server():
         uvicorn.run(
             "app.main:app",
             host="0.0.0.0",
-            port=8001,
+            port=8000,
             reload=True,
             log_level="info"
         )

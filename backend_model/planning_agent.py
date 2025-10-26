@@ -18,28 +18,19 @@ class PlanningAgent:
         results_seg = self.segmentation_model.segment(image_path, xyxy, labels)
 
         # Depth and compute stock
-        stock_dict = self.depth_model.compute_stock(results_seg, image_path)
+        stock_dict, total_pos_dic = self.depth_model.compute_stock(results_seg, image_path)
 
-        # Try to use Gemini for refinement if available
-        try:
-            if hasattr(self, 'gemini_model') and self.gemini_model:
-                pos_dic = {}
-                for cls, values in stock_dict.items():
-                    index = 0
-                    for fullness, layers in values:
-                        if fullness == 0:
-                            if cls not in pos_dic:
-                                pos_dic[cls] = []
-                            pos_dic[cls].append(index)
-                        index += 1
+        pos_dic = {}
+        for cls, values in stock_dict.items():
+            index = 0
+            for fullness, layers in values:
+                if fullness == 0:
+                    if cls not in pos_dic:
+                        pos_dic[cls] = []
+                    pos_dic[cls].append(index)
+                index += 1
 
-                if pos_dic:
-                    # Get total_pos_dic from depth model's internal state
-                    total_pos_dic = getattr(self.depth_model, 'total_pos_dic', {})
-                    refined_stock_dict = self.gemini_model.stock_estimation(image_path, pos_dic, total_pos_dic, stock_dict)
-                    if refined_stock_dict:
-                        stock_dict = refined_stock_dict
-        except Exception as e:
-            print(f"Gemini refinement failed, using depth-only results: {e}")
+        if pos_dic:
+            stock_dict = self.gemini_model.stock_estimation(image_path, pos_dic, total_pos_dic, stock_dict)
 
         self.depth_model.print_result(stock_dict)

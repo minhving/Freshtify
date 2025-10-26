@@ -20,3 +20,4 @@ from google.genai import types
 from google.genai.errors import ClientError
 from huggingface_hub import login
 from ultralytics import SAM
+import torch.nn.functional as F

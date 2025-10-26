@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     
     # API Settings
     HOST: str = "0.0.0.0"
-    PORT: int = 8001
+    PORT: int = 8000
     DEBUG: bool = True
     
     # CORS Settings
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         "http://localhost:3000", 
         "http://localhost:8080", 
         "http://localhost:5173",  # React Router dev server
-        "http://localhost:8001"   # Backend port
+        "http://localhost:8000"   # Backend port
     ]
     
     @field_validator('ALLOWED_ORIGINS', mode='before')

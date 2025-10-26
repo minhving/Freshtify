@@ -1,7 +1,7 @@
 
 from backend_model.detection_model import *
 from backend_model.segmentation_model import *
-#from backend_model.gemini_model import *
+from backend_model.gemini_model import *
 from backend_model.prob_calculation import *
 from backend_model.stock_estimation_depth import *
 

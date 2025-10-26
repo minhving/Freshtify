@@ -392,6 +392,9 @@ function Dashboard() {
   // When user toggles a different time, recompute products from groupedResults
   useEffect(() => {
     if (!groupedResults || !selectedTime) return;
+    console.log("🔍 DEBUG: groupedResults:", groupedResults);
+    console.log("🔍 DEBUG: selectedTime:", selectedTime);
+    console.log("🔍 DEBUG: groupedResults[selectedTime]:", groupedResults[selectedTime]);
     const selectedArray = groupedResults[selectedTime] || [];
     const realProducts = selectedArray.map(
       (result: AnalysisResult, index: number) => ({
