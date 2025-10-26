@@ -743,7 +743,6 @@ if __name__ == "__main__":
                 # Group per-section items by time key (e.g., T0, T1) and return grouped
                 grouped_results: dict[str, list[ProductStockInfo]] = {}
                 for item in final_results:
-                    .
                     # item.product format: "<name> N (T0)" -> extract T0
                    try:
                         time_key = item.product.split("(")[-1].rstrip(")")
