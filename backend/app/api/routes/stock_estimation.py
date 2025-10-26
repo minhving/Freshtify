@@ -107,12 +107,11 @@ if __name__ == "__main__":
     stock_dict = depth_model.compute_stock(results_seg, image_path)
 
     # Visualize
-    depth_model.visualize_stock(
-        image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
+    depth_model.visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
 
     # Calculate probs
     probs = depth_model.cal_probs(stock_dict)
-
+    
     # Prepare results in the format expected by the API
     results = []
     for product in {products}:
@@ -123,7 +122,7 @@ if __name__ == "__main__":
                 "confidence": probs.get(product, 0.5) if probs else 0.5,
                 "reasoning": f"AI model detected {{product}} with {{stock_dict[product]:.1f}}% stock level"
             }})
-
+    
     # Output results as JSON
     print(json.dumps(results))
 """
@@ -555,7 +554,7 @@ if __name__ == "__main__":
     depth_model = get_model("depth")
 
     all_results = []
-
+    
     for name in image_arr:
         image_path = f"dataset/{{name}}.jpg"
         image = Image.open(image_path)
@@ -568,14 +567,14 @@ if __name__ == "__main__":
 
         # Depth and compute stock
         stock_dict = depth_model.compute_stock(results_seg, image_path)
-
+        
         # Store results for this image
         image_results = {{
             "image_name": name,
             "stock_dict": stock_dict
         }}
         all_results.append(image_results)
-
+        
         print(f"Image: {{name}}")
         print(f"Stock dict: {{stock_dict}}")
         print(f"Length stock dict {{len(stock_dict)}}")
@@ -744,7 +743,7 @@ if __name__ == "__main__":
                 grouped_results: dict[str, list[ProductStockInfo]] = {}
                 for item in final_results:
                     # item.product format: "<name> N (T0)" -> extract T0
-                   try:
+                    try:
                         time_key = item.product.split("(")[-1].rstrip(")")
                     except Exception:
                         time_key = "T0"
