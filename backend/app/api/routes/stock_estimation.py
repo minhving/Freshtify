@@ -18,7 +18,8 @@ from app.models.schemas import (
     ProductType,
     StockLevel,
     ModelInfo,
-    ErrorResponse
+    ErrorResponse,
+    StockEstimationMultipleResponse,
 )
 from app.core.config import settings
 from app.services.ai_engine import AIEngine
@@ -106,11 +107,12 @@ if __name__ == "__main__":
     stock_dict = depth_model.compute_stock(results_seg, image_path)
 
     # Visualize
-    depth_model.visualize_stock(image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
+    depth_model.visualize_stock(
+        image_path, results_seg, stock_dict, save_path="depth_estimation_overlay.jpg")
 
     # Calculate probs
     probs = depth_model.cal_probs(stock_dict)
-    
+
     # Prepare results in the format expected by the API
     results = []
     for product in {products}:
@@ -121,7 +123,7 @@ if __name__ == "__main__":
                 "confidence": probs.get(product, 0.5) if probs else 0.5,
                 "reasoning": f"AI model detected {{product}} with {{stock_dict[product]:.1f}}% stock level"
             }})
-    
+
     # Output results as JSON
     print(json.dumps(results))
 """
@@ -416,7 +418,8 @@ async def estimate_stock_batch(
 @router.post("/estimate-stock-integrated", response_model=StockEstimationResponse)
 async def estimate_stock_integrated(
     file: UploadFile = File(...),
-    products: str = Form("potato section,onion,eggplant section,tomato,cucumber"),
+    products: str = Form(
+        "potato section,onion,eggplant section,tomato,cucumber"),
     confidence_threshold: float = Form(0.7)
 ):
     """
@@ -463,7 +466,7 @@ async def estimate_stock_integrated(
             status_code=500, detail=f"Integrated estimation failed: {str(e)}")
 
 
-@router.post("/estimate-stock-multiple", response_model=StockEstimationResponse)
+@router.post("/estimate-stock-multiple", response_model=StockEstimationMultipleResponse)
 async def estimate_stock_multiple(
     files: List[UploadFile] = File(...),
     products: str = Form(
@@ -552,7 +555,7 @@ if __name__ == "__main__":
     depth_model = get_model("depth")
 
     all_results = []
-    
+
     for name in image_arr:
         image_path = f"dataset/{{name}}.jpg"
         image = Image.open(image_path)
@@ -565,14 +568,14 @@ if __name__ == "__main__":
 
         # Depth and compute stock
         stock_dict = depth_model.compute_stock(results_seg, image_path)
-        
+
         # Store results for this image
         image_results = {{
             "image_name": name,
             "stock_dict": stock_dict
         }}
         all_results.append(image_results)
-        
+
         print(f"Image: {{name}}")
         print(f"Stock dict: {{stock_dict}}")
         print(f"Length stock dict {{len(stock_dict)}}")
@@ -737,11 +740,12 @@ if __name__ == "__main__":
                             reasoning=f"AI model processed {image_name} but returned unexpected format"
                         ))
 
-                # Group per-section items by time key (e.g., T0, T1)
+                # Group per-section items by time key (e.g., T0, T1) and return grouped
                 grouped_results: dict[str, list[ProductStockInfo]] = {}
                 for item in final_results:
+                    .
                     # item.product format: "<name> N (T0)" -> extract T0
-                    try:
+                   try:
                         time_key = item.product.split("(")[-1].rstrip(")")
                     except Exception:
                         time_key = "T0"
@@ -749,12 +753,12 @@ if __name__ == "__main__":
 
                 processing_time = time.time() - start_time
 
-                return StockEstimationResponse(
+                return StockEstimationMultipleResponse(
                     success=True,
                     message=f"Stock estimation completed successfully for {len(image_paths)} images using integrated AI models",
                     processing_time=processing_time,
                     timestamp=datetime.utcnow().isoformat() + "Z",
-                    results=final_results,
+                    results=grouped_results,
                     model_used="integrated-ai-multiple",
                     image_metadata={
                         "image_count": len(image_paths),

@@ -12,7 +12,8 @@ type AnalysisResult = {
 };
 
 type AnalysisData = {
-  results?: AnalysisResult[];
+  // results can be either an array (legacy) or a grouped dict keyed by time (T0, T1, ...)
+  results?: AnalysisResult[] | Record<string, AnalysisResult[]>;
   timestamp?: string;
 };
 
@@ -47,7 +48,25 @@ function Alert() {
       if (!raw) return;
       const data: AnalysisData = JSON.parse(raw);
       setTimestamp(data.timestamp ?? null);
-      const items = (data.results ?? []).filter((r) => {
+      // Normalize results to a flat array regardless of shape
+      let flat: AnalysisResult[] = [];
+      const res = data.results as any;
+      if (Array.isArray(res)) {
+        flat = res as AnalysisResult[];
+      } else if (res && typeof res === "object") {
+        // Prefer the user's selected time if available
+        const selectedKey = localStorage.getItem("selectedTimeKey");
+        if (selectedKey && Array.isArray(res[selectedKey])) {
+          flat = res[selectedKey] as AnalysisResult[];
+        } else {
+          // Fallback: flatten all time buckets
+          Object.values(res).forEach((arr: any) => {
+            if (Array.isArray(arr)) flat.push(...(arr as AnalysisResult[]));
+          });
+        }
+      }
+
+      const items = flat.filter((r) => {
         // Prefer explicit status, fallback to percentage < 30%
         if (r.stock_status) return r.stock_status === "low";
         return (r.stock_percentage ?? 1) < 0.3;
