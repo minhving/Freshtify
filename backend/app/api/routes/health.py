@@ -22,12 +22,8 @@ async def health_check():
         # Check GPU availability
         gpu_available = torch.cuda.is_available()
         
-        # List of models that should be loaded (placeholder for now)
-        models_loaded = []
-        
-        # Add models based on configuration
-        if settings.DEFAULT_MODEL:
-            models_loaded.append(settings.DEFAULT_MODEL)
+        # List of models that are actually available in the current project
+        models_loaded = ["integrated-ai-pipeline"]
         
         return HealthResponse(
             status="healthy",

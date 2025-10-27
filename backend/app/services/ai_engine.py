@@ -267,44 +267,44 @@ class AIEngine:
         """Get list of available AI models."""
         models = [
             ModelInfo(
-                name="qwen-vl",
-                type="vision-language",
-                description="Qwen-VL for vision-language understanding",
+                name="integrated-ai-pipeline",
+                type="integrated",
+                description="Integrated AI pipeline: Detection → Segmentation → Depth Estimation → Gemini Refinement",
                 supported_products=[ProductType(p) for p in settings.SUPPORTED_PRODUCTS],
                 requires_gpu=True,
-                estimated_processing_time=2.0
+                estimated_processing_time=120.0
             ),
             ModelInfo(
-                name="paligemma",
-                type="vision-language",
-                description="PaliGemma for image understanding",
+                name="detection",
+                type="detection",
+                description="Object detection model for identifying products",
                 supported_products=[ProductType(p) for p in settings.SUPPORTED_PRODUCTS],
                 requires_gpu=True,
-                estimated_processing_time=1.5
+                estimated_processing_time=5.0
             ),
             ModelInfo(
-                name="florence",
-                type="vision-language",
-                description="Florence-2 for visual understanding",
-                supported_products=[ProductType(p) for p in settings.SUPPORTED_PRODUCTS],
-                requires_gpu=True,
-                estimated_processing_time=1.8
-            ),
-            ModelInfo(
-                name="sam",
+                name="segmentation",
                 type="segmentation",
-                description="Segment Anything Model for image segmentation",
+                description="SAM2 (Segment Anything Model) for image segmentation",
                 supported_products=[ProductType(p) for p in settings.SUPPORTED_PRODUCTS],
                 requires_gpu=True,
-                estimated_processing_time=3.0
+                estimated_processing_time=10.0
             ),
             ModelInfo(
-                name="basic-cv",
-                type="computer-vision",
-                description="Basic computer vision techniques",
+                name="depth-estimation",
+                type="depth-estimation",
+                description="Depth estimation for calculating stock fullness",
+                supported_products=[ProductType(p) for p in settings.SUPPORTED_PRODUCTS],
+                requires_gpu=True,
+                estimated_processing_time=30.0
+            ),
+            ModelInfo(
+                name="gemini-refinement",
+                type="refinement",
+                description="Gemini model for refining stock estimates (optional)",
                 supported_products=[ProductType(p) for p in settings.SUPPORTED_PRODUCTS],
                 requires_gpu=False,
-                estimated_processing_time=0.5
+                estimated_processing_time=10.0
             )
         ]
         
