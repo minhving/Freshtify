@@ -419,33 +419,11 @@ async def estimate_stock_multiple(
                 shutil.copy2(image_path, dest_path)
                 logger.info(f"Copied image to {dest_path}")
 
-            # Run main.py directly without modifying it
+            # Run main.py directly - it now dynamically detects available images
             main_py_path = os.path.join(project_root, "main.py")
             
-            # Create a temporary modified main.py with correct image_arr
-            import tempfile
-            temp_main_py = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=project_root)
-            
-            # Read original main.py
-            with open(main_py_path, 'r') as f:
-                main_content = f.read()
-            
-            # Update image_arr based on number of uploaded images
-            image_arr_list = ', '.join([f"'T{i}'" for i in range(len(image_paths))])
-            updated_content = main_content.replace(
-                "image_arr =  ['T0', 'T1']",
-                f"image_arr =  [{image_arr_list}]"
-            )
-            
-            temp_main_py.write(updated_content)
-            temp_main_py.close()
-            
-            logger.info(f"Created temporary main.py with image_arr = [{image_arr_list}]")
-            logger.info(f"Temp main.py path: {temp_main_py.name}")
-            
-            main_py_path = temp_main_py.name
-            
             logger.info("Running main.py analysis on multiple images...")
+            logger.info(f"Images to process: {[f'T{i}' for i in range(len(image_paths))]}")
             logger.info(f"Project root: {project_root}")
             logger.info("This may take 5-10 minutes for multiple AI model processing...")
 
@@ -609,17 +587,8 @@ async def estimate_stock_multiple(
                     status_code=500, detail="Failed to parse AI analysis results")
 
         finally:
-            # Clean up temporary directory and temp main.py file
+            # Clean up temporary directory
             shutil.rmtree(temp_dir, ignore_errors=True)
-            
-            # Remove temporary main.py file if it was created
-            if 'temp_main_py' in locals() and os.path.exists(temp_main_py.name):
-                try:
-                    os.remove(temp_main_py.name)
-                    logger.info("Cleaned up temporary main.py file")
-                except:
-                    pass
-            
             logger.info("Cleaned up temporary files")
 
     except HTTPException:
