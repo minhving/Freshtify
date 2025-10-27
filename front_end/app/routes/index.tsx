@@ -1,8 +1,15 @@
 import { Link } from "react-router";
 import Header from "../components/Header";
+<<<<<<< HEAD
 import Button from "../components/ui/Button";
 import { Camera, BadgeInfo, ChartLine } from "lucide-react";
 import { useNavigate } from "react-router";
+=======
+import Button from "~/components/ui/buttonCustom";
+import { Camera, BadgeInfo, ChartLine, User } from "lucide-react";
+import { useNavigate } from "react-router";
+import noelAvatar from "../assets/avatars/NoelTran.jpg";
+>>>>>>> 16000a83873aac5a7b357209a359371a5485bce8
 
 const features = [
   {
@@ -24,10 +31,46 @@ const features = [
   },
 ];
 
+<<<<<<< HEAD
 export default function Home() {
   const navigate = useNavigate();
   return (
     <div className="flex items-center justify-center px-10 py-10">
+=======
+const teamMembers = [
+  {
+    name: "Noel Tran",
+    role: "Frontend Engineer",
+    image: noelAvatar,
+  },
+  {
+    name: "Tran Anh Quan",
+    role: "AI Engineer",
+    image: noelAvatar,
+  },
+  {
+    name: "Nguyen Quoc An",
+    role: "AI Engineer",
+    image: noelAvatar,
+  },
+  {
+    name: "Nguyen Minh Vi",
+    role: "AI Engineer",
+    image: noelAvatar,
+  },
+  {
+    name: "Pham Vu Tung Duong",
+    role: "Backend Engineer",
+    image: noelAvatar,
+  },
+];
+
+export default function Home() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col items-center justify-center px-10 py-10">
+      {/* introduction section */}
+>>>>>>> 16000a83873aac5a7b357209a359371a5485bce8
       <div className="flex flex-col lg:flex-row items-center justify-center">
         {/* hero section */}
         <div className="lg:mr-10">
@@ -74,6 +117,35 @@ export default function Home() {
           </div>
         </div>
       </div>
+<<<<<<< HEAD
+=======
+      {/* team members section */}
+      <div className="w-full mt-16 max-w-7xl mx-auto">
+        <h2 className="text-center text-3xl font-bold text-primary mb-6">
+          Our Team
+        </h2>
+        <p className="text-center text-lg text-primary/80 mb-8">
+          Dedicated people behind Freshtify
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          {teamMembers.map((m, idx) => (
+            <div
+              key={idx}
+              className="bg-white rounded-3xl p-6 shadow flex flex-col items-center text-center"
+            >
+              <img
+                src={m.image}
+                alt={m.name}
+                className="w-16 h-16 rounded-full object-cover"
+              />
+
+              <div className="text-lg font-semibold text-primary">{m.name}</div>
+              <div className="text-sm text-primary/70">{m.role}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+>>>>>>> 16000a83873aac5a7b357209a359371a5485bce8
     </div>
   );
 }

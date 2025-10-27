@@ -3,9 +3,14 @@ import { Link } from "react-router";
 function Footer() {
   const footerLinks = [
     { name: "Product", href: "/" },
+<<<<<<< HEAD
     { name: "Solutions", href: "/" },
     { name: "Resources", href: "/" },
     { name: "Pricing", href: "/" },
+=======
+    { name: "Solutions", href: "/upload" },
+    { name: "Resources", href: "/dashboard" },
+>>>>>>> 16000a83873aac5a7b357209a359371a5485bce8
   ];
   return (
     // <footer className="w-full bg-primary shadow px-20 py-3 flex flex-col items-center justify-center">

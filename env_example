@@ -1,0 +1,6 @@
+# Hugging Face Configuration
+# Get your token from: https://huggingface.co/settings/tokens
+HF_TOKEN=your_huggingface_token_here
+
+# Alternative: Use a public token (less secure but works for testing)
+# HF_TOKEN=hf_public_token_here

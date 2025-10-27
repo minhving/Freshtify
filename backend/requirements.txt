@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 timm
 torch
 ultralytics
@@ -5,3 +6,50 @@ dotenv
 huggingface_hub
 google
 google-genai
+=======
+# Core API Framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+python-multipart>=0.0.6
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# AI/ML Dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+accelerate>=0.20.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Computer Vision Models
+segment-anything>=1.0
+depth-anything-v2>=0.0.1
+
+# Vision-Language Models
+qwen-vl-utils>=0.0.1
+google-generativeai>=0.3.0
+
+# Image Processing
+albumentations>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Database (optional for storing results)
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# Utilities
+python-dotenv>=1.0.0
+httpx>=0.25.0
+aiofiles>=23.0.0
+loguru>=0.7.0
+psutil>=5.9.0
+
+# Development
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0
+>>>>>>> 16000a83873aac5a7b357209a359371a5485bce8
