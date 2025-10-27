@@ -1,0 +1,20 @@
+> react-router dev
+
+Error: Route config in "routes.ts" is invalid.
+
+routes.ts:8:30
+Expected ">" but found "/"
+6  |  
+7  |  export const router = createBrowserRouter([
+8  |    { path: "/", element: <Home /> },
+   |                                ^
+9  |    { path: "/upload", element: <Upload /> },
+10 |    { path: "/dashboard", element: <Dashboard /> },
+    at createConfigLoader (/Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/@react-router/dev/dist/vite.js:589:11)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at config (/Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/@react-router/dev/dist/vite.js:3082:35)
+    at runConfigHook (file:///Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:49444:17)
+    at resolveConfig (file:///Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:48751:12)
+    at _createServer (file:///Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:38329:18)
+    at dev (/Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/@react-router/dev/dist/cli/index.js:1965:16)
+    at dev2 (/Users/noel.anhduy/Desktop/freshtify-frontend/node_modules/@react-router/dev/dist/cli/index.js:2136:3)
