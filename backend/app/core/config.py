@@ -20,7 +20,9 @@ class Settings(BaseSettings):
         "http://localhost:3000", 
         "http://localhost:8080", 
         "http://localhost:5173",  # React Router dev server
-        "http://localhost:8000"   # Backend port
+        "http://localhost:8000",   # Backend port
+        "https://fe.freshtify.life",
+        "https://be.freshtify.life"
     ]
     
     @field_validator('ALLOWED_ORIGINS', mode='before')

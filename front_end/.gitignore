@@ -5,5 +5,7 @@
 /.react-router/
 /build/
 
+
+/venv-py312/
 .env
 .sam2.1_l.pt

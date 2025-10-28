@@ -1,0 +1,58 @@
+services:
+  # Backend API Service
+  backend:
+    image: backend:latest-sv
+    container_name: ai-stock-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=true
+      - ENABLE_GPU=true
+      - CUDA_VISIBLE_DEVICES=0
+    env_file:
+      - .env
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/outputs:/app/outputs
+      - ./backend/model_cache:/app/model_cache
+      - ./backend/logs:/app/logs
+      # - ./.env:/app/.env:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ai-stock-network
+  frontend:
+    image: fe:latest-sv
+    container_name: ai-stock-frontend
+    ports:
+      - "12355:12355"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - ai-stock-network
+networks:
+  ai-stock-network:
+    driver: bridge
+
+volumes:
+  model_cache:
+    driver: local
+  uploads:
+    driver: local
+  outputs:
+    driver: local

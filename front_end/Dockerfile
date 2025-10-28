@@ -1,22 +1,19 @@
-FROM node:20-alpine AS development-dependencies-env
-COPY . /app
-WORKDIR /app
-RUN npm ci
+# Use our customized image based on Node.js 20 slim image as a base
+FROM node:22-bookworm
 
-FROM node:20-alpine AS production-dependencies-env
-COPY ./package.json package-lock.json /app/
-WORKDIR /app
-RUN npm ci --omit=dev
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser -s /bin/bash -d /usr/src/app appuser
 
-FROM node:20-alpine AS build-env
-COPY . /app/
-COPY --from=development-dependencies-env /app/node_modules /app/node_modules
-WORKDIR /app
-RUN npm run build
+# Set the working directory
+WORKDIR /usr/src/app
 
-FROM node:20-alpine
-COPY ./package.json package-lock.json /app/
-COPY --from=production-dependencies-env /app/node_modules /app/node_modules
-COPY --from=build-env /app/build /app/build
-WORKDIR /app
-CMD ["npm", "run", "start"]
+# Ensure the non-root user owns the working directory
+RUN chown -R appuser:appuser /usr/src/app
+
+# Copy the application code as the non-root user
+COPY --chown=appuser:appuser . .
+
+# Install dependencies & build code
+RUN	npm install && npm run build
+
+CMD ["npm","run", "start"]

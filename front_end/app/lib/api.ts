@@ -1,7 +1,7 @@
 // API Configuration for Freshtify Frontend
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://your-production-api.com"
+    ? "https://be.freshtify.life"
     : "http://localhost:8000";
 
 export const API_ENDPOINTS = {
