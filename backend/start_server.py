@@ -64,9 +64,9 @@ def start_server():
         )
         
     except KeyboardInterrupt:
-        print("\n Server stopped by user")
+        print("\nServer stopped by user")
     except Exception as e:
-        print(f"Failed to start server: {e}")
+        print(f"✗ Failed to start server: {e}")
         return False
 
 def main():

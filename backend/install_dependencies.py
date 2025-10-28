@@ -12,10 +12,10 @@ import importlib.util
 def check_python_version():
     """Check if Python version is compatible."""
     if sys.version_info < (3, 8):
-        print("❌ Python 3.8 or higher is required")
+        print("Python 3.8 or higher is required")
         print(f"Current version: {sys.version}")
         return False
-    print(f"✓ Python version: {sys.version.split()[0]}")
+    print(f"Python version: {sys.version.split()[0]}")
     return True
 
 def install_package(package_name, import_name=None):
@@ -27,7 +27,7 @@ def install_package(package_name, import_name=None):
         # Check if already installed
         spec = importlib.util.find_spec(import_name)
         if spec is not None:
-            print(f"✓ {package_name} already installed")
+            print(f" {package_name} already installed")
             return True
     except ImportError:
         pass
@@ -37,16 +37,16 @@ def install_package(package_name, import_name=None):
         subprocess.check_call([
             sys.executable, "-m", "pip", "install", package_name
         ], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        print(f"✓ {package_name} installed successfully")
+        print(f" {package_name} installed successfully")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install {package_name}: {e}")
+        print(f" Failed to install {package_name}: {e}")
         return False
 
 def install_from_requirements(requirements_file):
     """Install packages from requirements file."""
     if not os.path.exists(requirements_file):
-        print(f"❌ Requirements file {requirements_file} not found")
+        print(f" Requirements file {requirements_file} not found")
         return False
     
     print(f"Installing packages from {requirements_file}...")
@@ -54,10 +54,10 @@ def install_from_requirements(requirements_file):
         subprocess.check_call([
             sys.executable, "-m", "pip", "install", "-r", requirements_file
         ])
-        print(f"✓ Packages from {requirements_file} installed successfully")
+        print(f" Packages from {requirements_file} installed successfully")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install from {requirements_file}: {e}")
+        print(f" Failed to install from {requirements_file}: {e}")
         return False
 
 def install_core_dependencies():
@@ -82,10 +82,10 @@ def install_core_dependencies():
             failed_packages.append(package)
     
     if failed_packages:
-        print(f"❌ Failed to install: {', '.join(failed_packages)}")
+        print(f" Failed to install: {', '.join(failed_packages)}")
         return False
     
-    print("✓ Core dependencies installed successfully")
+    print(" Core dependencies installed successfully")
     return True
 
 def install_ai_dependencies():
@@ -107,11 +107,11 @@ def install_ai_dependencies():
             failed_packages.append(package)
     
     if failed_packages:
-        print(f"⚠️  Some AI packages failed to install: {', '.join(failed_packages)}")
+        print(f"  Some AI packages failed to install: {', '.join(failed_packages)}")
         print("The API will still work with basic functionality")
         return False
     
-    print("✓ AI/ML dependencies installed successfully")
+    print(" AI/ML dependencies installed successfully")
     return True
 
 def test_installation():
@@ -139,7 +139,7 @@ def test_installation():
         return True
         
     except ImportError as e:
-        print(f"❌ Installation test failed: {e}")
+        print(f" Installation test failed: {e}")
         return False
 
 def main():
@@ -153,7 +153,7 @@ def main():
     
     # Install core dependencies
     if not install_core_dependencies():
-        print("❌ Core dependency installation failed")
+        print(" Core dependency installation failed")
         return 1
     
     # Install AI dependencies
@@ -161,11 +161,11 @@ def main():
     
     # Test installation
     if not test_installation():
-        print("❌ Installation test failed")
+        print(" Installation test failed")
         return 1
     
     print("\n" + "=" * 60)
-    print("🎉 Installation completed successfully!")
+    print(" Installation completed successfully!")
     print("\nNext steps:")
     print("1. Run: python start_server.py")
     print("2. Visit: http://localhost:8000/docs")
