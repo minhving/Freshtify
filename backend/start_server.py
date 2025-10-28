@@ -36,10 +36,10 @@ def install_dependencies():
     print("Installing missing dependencies...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
-        print("✓ Dependencies installed successfully")
+        print("Dependencies installed successfully")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"✗ Failed to install dependencies: {e}")
+        print(f"Failed to install dependencies: {e}")
         return False
 
 def start_server():
@@ -64,9 +64,9 @@ def start_server():
         )
         
     except KeyboardInterrupt:
-        print("\n✓ Server stopped by user")
+        print("\n Server stopped by user")
     except Exception as e:
-        print(f"✗ Failed to start server: {e}")
+        print(f"Failed to start server: {e}")
         return False
 
 def main():
@@ -76,8 +76,8 @@ def main():
     
     # Check if we're in the right directory
     if not os.path.exists("app") or not os.path.exists("requirements.txt"):
-        print("✗ Please run this script from the project root directory")
-        print("  Make sure 'app' folder and 'requirements.txt' exist")
+        print("Please run this script from the project root directory")
+        print("Make sure 'app' folder and 'requirements.txt' exist")
         return 1
     
     # Check dependencies
@@ -87,11 +87,10 @@ def main():
         print("Installing dependencies...")
         
         if not install_dependencies():
-            print("✗ Failed to install dependencies")
+            print("Failed to install dependencies")
             print("Please install manually: pip install -r requirements.txt")
             return 1
-    
-    print("✓ All dependencies are available")
+    print("All dependencies are available")
     
     # Start server
     start_server()
