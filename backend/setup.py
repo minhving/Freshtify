@@ -13,12 +13,12 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 setup(
     name="ai-stock-estimation-api",
     version="1.0.0",
-    author="Dr. Phu Lai",
-    author_email="P.Lai@latrobe.edu.au",
+    author="Team ChillGuys La Trobe University",
+    author_email="quocan0106@gmail.com",
     description="AI-powered stock level estimation for supermarkets",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/your-repo/ai-stock-estimation-api",
+    url="https://github.com/minhving/Freshtify/tree/main",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
