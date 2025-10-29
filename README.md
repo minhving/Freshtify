@@ -29,7 +29,7 @@ It integrates a React + Tailwind frontend with a FastAPI backend and a hybrid AI
 - **AI Layer:** GroundingDino (Detection), SAM2 (Segmentation), Depth-Anything-v2 (Depth Estimation), and Gemini (Refinement).  
 - **Deployment:** Dockerized services running on TensorDock / AWS / GCP.  
 
-![System Architecture Diagram](./docs/System Flow Chart.png)
+![System Architecture Diagram](./docs/System_Flow_Chart.png)
 
 ---
 
