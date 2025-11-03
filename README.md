@@ -229,27 +229,6 @@ This generates:
 - `build/client/` - Static assets (HTML, CSS, JS)
 - `build/server/` - Server-side code
 
-## 🐳 Docker Deployment
-
-### Build Docker Image
-
-```bash
-docker build -t freshtify-frontend .
-```
-
-### Run Container
-
-```bash
-docker run -p 3000:3000 freshtify-frontend
-```
-
-### Docker Compose
-
-If you have a `docker-compose.yml` in the root directory:
-
-```bash
-docker-compose up frontend
-```
 
 ## 🚀 Deployment Options
 
@@ -303,10 +282,6 @@ The frontend communicates with the backend API defined in `app/lib/api.ts`. Upda
 // app/lib/api.ts
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 ```
-
-## 👥 Team
-
-This project is built by the Chill guys team. Team member information and avatars are located in `app/assets/avatars/`.
 
 ---
 
@@ -684,8 +659,6 @@ python start_server.py
 
 # **Freshtify - AI Stock App Container Deployment Guide**
 
-# 
-
 ## **Table of Contents**
 
 1. [Pre-requisites](#pre-requisites)  
@@ -948,3 +921,8 @@ If you cannot open ports (no root access), use **Cloudflare Tunnel**:
 https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel/
 
 This method exposes your application securely to the internet.
+
+
+## 👥 Team
+
+This project is built by the Chill guys team. Team member information and avatars are located in `app/assets/avatars/`.
